@@ -1,0 +1,10 @@
+{
+  "name": "perps-risk-sim",
+  "version": "1.0.0",
+  "description": "Zero-dependency perpetual futures orderbook, funding, liquidation cascade and VaR simulator",
+  "private": true,
+  "scripts": {
+    "test": "node --test test/perps.test.js"
+  },
+  "license": "MIT"
+}

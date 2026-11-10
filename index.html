@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Perps Risk Sim | Orderbook, Funding & Liquidation Workbench</title>
+<meta name="description" content="A zero-dependency perpetual futures workbench: CLOB depth and price impact, funding rate TWAP clamps, isolated vs cross margin liquidation pricing, Monte Carlo GBM and jump-diffusion VaR, and a liquidation cascade stress engine.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="grain" aria-hidden="true"></div>
+
+<header class="site-head">
+  <div class="wrap head-inner">
+    <a class="brand" href="./">
+      <span class="brand-mark" aria-hidden="true">PR</span>
+      <span class="brand-text">Perps<span class="brand-dim">RiskSim</span></span>
+    </a>
+    <nav class="head-nav" aria-label="Sections">
+      <a href="#clob">CLOB</a>
+      <a href="#funding">Funding</a>
+      <a href="#margin">Margin</a>
+      <a href="#cascade">Cascade</a>
+      <a href="#var">VaR</a>
+      <a href="#report">Report</a>
+    </nav>
+    <button id="theme-toggle" class="theme-btn" type="button" aria-label="Toggle light or dark theme">Light</button>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section class="hero">
+    <div class="hero-copy">
+      <p class="eyebrow">Perpetual futures / risk engineering / zero dependencies</p>
+      <h1>See the liquidation<br>before it happens.</h1>
+      <p class="lede">Walk a real central limit orderbook, price the funding basis, solve the exact maintenance-margin liquidation price, then stress the whole book with a price shock and jump-diffusion Monte Carlo. Built for the dreamDEX Perps Builder Bounty. Everything runs locally in the browser.</p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="#cascade">Run a cascade</a>
+        <a class="btn btn-ghost" href="#var">Compute VaR</a>
+      </div>
+      <div class="hero-stats" role="group" aria-label="Workbench facts">
+        <div class="stat"><span class="stat-num" id="stat-levels">12</span><span class="stat-label">book levels / side</span></div>
+        <div class="stat"><span class="stat-num" id="stat-tests">76</span><span class="stat-label">passing unit tests</span></div>
+        <div class="stat"><span class="stat-num" id="stat-mc">2000</span><span class="stat-label">Monte Carlo paths</span></div>
+        <div class="stat"><span class="stat-num">0</span><span class="stat-label">runtime dependencies</span></div>
+      </div>
+    </div>
+    <div class="hero-panel" aria-label="Liquidation waterfall">
+      <div class="panel-head">
+        <span>Price impact by order size</span>
+        <span class="panel-tag" id="impact-tag">market buy</span>
+      </div>
+      <div id="hero-chart" class="hero-chart"></div>
+      <div class="chart-legend" id="hero-legend"></div>
+      <p class="panel-note">Impact is measured in basis points against the mid price, walking successive ask levels of a synthetic CLOB.</p>
+    </div>
+  </section>
+
+  <!-- ================= CLOB ================= -->
+  <section id="clob" class="section">
+    <div class="section-head">
+      <span class="kicker">01 / Market microstructure</span>
+      <h2>Orderbook depth & impact</h2>
+      <p>Resting limit orders form the book. A market order walks the ladder and its average fill price drifts away from mid. A larger order consumes more levels and pays more slippage.</p>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <h3>Book depth ladder</h3>
+        <p class="card-sub">Cumulative resting size at each price level. Bids below mid, asks above.</p>
+        <div id="book-chart" class="chart"></div>
+        <div class="chart-legend" id="book-legend"></div>
+      </div>
+      <div class="card">
+        <h3>Market order</h3>
+        <div class="field">
+          <label for="clob-side">Side</label>
+          <select id="clob-side">
+            <option value="buy">Buy (lift asks)</option>
+            <option value="sell">Sell (hit bids)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="clob-size">Order size (base units) <output id="clob-size-out">20</output></label>
+          <input type="range" id="clob-size" min="1" max="120" value="20">
+        </div>
+        <div class="field">
+          <label for="clob-mid">Mid price</label>
+          <input type="number" id="clob-mid" value="30000" min="100" step="100">
+        </div>
+        <button class="btn btn-primary" id="clob-run" type="button">Execute market order</button>
+        <div class="readout" id="clob-readout"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= FUNDING ================= -->
+  <section id="funding" class="section">
+    <div class="section-head">
+      <span class="kicker">02 / Perpetual basis</span>
+      <h2>Funding rate TWAP & clamp</h2>
+      <p>The funding rate follows a time-weighted premium of mark over index plus a baseline interest component, then gets clamped to a symmetric band. Longs pay shorts when funding is positive.</p>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <h3>Premium samples</h3>
+        <p class="card-sub">Time-weighted mark samples over one funding interval.</p>
+        <div id="funding-chart" class="chart"></div>
+        <div class="chart-legend" id="funding-legend"></div>
+      </div>
+      <div class="card">
+        <h3>Controls</h3>
+        <div class="field">
+          <label for="fund-premium">Mark premium over index (bps) <output id="fund-premium-out">10</output></label>
+          <input type="range" id="fund-premium" min="-200" max="200" value="10">
+        </div>
+        <div class="field">
+          <label for="fund-cap">Clamp cap (bps) <output id="fund-cap-out">50</output></label>
+          <input type="range" id="fund-cap" min="5" max="150" value="50">
+        </div>
+        <div class="field">
+          <label for="fund-interest">Interest component (bps)</label>
+          <input type="number" id="fund-interest" value="1" min="0" max="20" step="0.5">
+        </div>
+        <div class="readout" id="funding-readout"></div>
+        <div class="verdict" id="funding-verdict" role="status"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= MARGIN ================= -->
+  <section id="margin" class="section">
+    <div class="section-head">
+      <span class="kicker">03 / Margin</span>
+      <h2>Isolated vs cross liquidation</h2>
+      <p>Solve for the exact mark price where account equity equals the maintenance margin. Cross margin shares wallet equity across positions; isolated margin bounds the loss to the assigned collateral.</p>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <h3>Position</h3>
+        <div class="field">
+          <label for="marg-side">Side</label>
+          <select id="marg-side">
+            <option value="long">Long</option>
+            <option value="short">Short</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="marg-leverage">Leverage <output id="marg-leverage-out">10</output>x</label>
+          <input type="range" id="marg-leverage" min="1" max="25" value="10">
+        </div>
+        <div class="field">
+          <label for="marg-price">Entry / mark price</label>
+          <input type="number" id="marg-price" value="30000" min="100" step="100">
+        </div>
+        <div class="field">
+          <label for="marg-mmr">Maintenance margin rate <output id="marg-mmr-out">0.50%</output></label>
+          <input type="range" id="marg-mmr" min="0.1" max="2" step="0.1" value="0.5">
+        </div>
+        <div class="readout" id="margin-readout"></div>
+      </div>
+      <div class="card">
+        <h3>Equity vs maintenance margin</h3>
+        <p class="card-sub">Account equity across a price range. The line crosses the maintenance margin at the liquidation price.</p>
+        <div id="margin-chart" class="chart"></div>
+        <div class="chart-legend" id="margin-legend"></div>
+        <div class="check-row" id="margin-checks"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= CASCADE ================= -->
+  <section id="cascade" class="section">
+    <div class="section-head">
+      <span class="kicker">04 / Contagion</span>
+      <h2>Liquidation cascade</h2>
+      <p>A price shock marks every position to market. Undercollateralized positions are force-closed into the book; each closing order pushes the price further and can trigger the next round.</p>
+    </div>
+    <div class="cascade-bar">
+      <div class="field inline">
+        <label for="casc-shock">Price shock (%) <output id="casc-shock-out">-9</output></label>
+        <input type="range" id="casc-shock" min="-25" max="25" value="-9">
+      </div>
+      <div class="field inline">
+        <label for="casc-count">Positions</label>
+        <input type="number" id="casc-count" value="8" min="1" max="24" step="1">
+      </div>
+      <div class="field inline">
+        <label for="casc-lev">Leverage</label>
+        <input type="number" id="casc-lev" value="10" min="1" max="25" step="1">
+      </div>
+      <button class="btn btn-primary" id="casc-run" type="button">Stress the book</button>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <h3>Liquidations per round</h3>
+        <div id="cascade-chart" class="chart"></div>
+        <div class="chart-legend" id="cascade-legend"></div>
+        <div class="readout" id="cascade-readout"></div>
+      </div>
+      <div class="card">
+        <h3>Event log</h3>
+        <div class="event-log" id="cascade-log"></div>
+        <div class="verdict" id="cascade-verdict" role="status">Configure a shock and press "Stress the book".</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= VAR ================= -->
+  <section id="var" class="section">
+    <div class="section-head">
+      <span class="kicker">05 / Tail risk</span>
+      <h2>Monte Carlo GBM + jump diffusion</h2>
+      <p>Geometric Brownian motion with Merton-style Poisson jumps. Compare the 99% VaR, expected shortfall, and the probability that a leveraged position breaches its liquidation price over the horizon.</p>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <h3>Simulation</h3>
+        <div class="field">
+          <label for="var-vol">Annual volatility <output id="var-vol-out">60%</output></label>
+          <input type="range" id="var-vol" min="10" max="150" value="60">
+        </div>
+        <div class="field">
+          <label for="var-jump">Jump intensity (per year) <output id="var-jump-out">0.5</output></label>
+          <input type="range" id="var-jump" min="0" max="5" step="0.25" value="0.5">
+        </div>
+        <div class="field">
+          <label for="var-horizon">Horizon (days)</label>
+          <input type="number" id="var-horizon" value="1" min="1" max="90" step="1">
+        </div>
+        <label class="switch"><input type="checkbox" id="var-enable-jump" checked><span>Enable jump diffusion</span></label>
+        <button class="btn btn-primary" id="var-run" type="button">Run Monte Carlo</button>
+        <div class="readout" id="var-readout"></div>
+      </div>
+      <div class="card">
+        <h3>Terminal price distribution</h3>
+        <p class="card-sub">Histogram of terminal prices from the simulated paths.</p>
+        <div id="var-chart" class="chart"></div>
+        <div class="chart-legend" id="var-legend"></div>
+        <div class="check-row" id="var-checks"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= REPORT ================= -->
+  <section id="report" class="section">
+    <div class="section-head">
+      <span class="kicker">06 / Desk summary</span>
+      <h2>Combined risk report</h2>
+      <p>One deterministic snapshot joining book microstructure, funding, position margin and parametric VaR. Export it as JSON to reproduce the numbers.</p>
+    </div>
+    <div class="card">
+      <div class="btn-row">
+        <button class="btn btn-primary" id="report-run" type="button">Build report</button>
+        <button class="btn btn-ghost" id="report-copy" type="button">Copy JSON</button>
+        <button class="btn btn-ghost" id="report-download" type="button">Download .json</button>
+      </div>
+      <pre id="report-output" class="code-block" aria-label="Risk report JSON">Press "Build report" to assemble the deterministic snapshot.</pre>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-foot">
+  <div class="wrap foot-inner">
+    <span>Perps Risk Sim / pure JavaScript, zero dependencies</span>
+    <span>Built for the dreamDEX Perps Builder Bounty on Somnia testnet</span>
+  </div>
+</footer>
+
+<script src="src/perps.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
