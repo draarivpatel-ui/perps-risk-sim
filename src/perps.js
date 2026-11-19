@@ -116,6 +116,7 @@
     function marketOrder(side, size) {
       if (!(size > 0)) throw new RangeError('market order size must be positive');
       const book = side === 'buy' ? asks : bids; // a buy consumes asks
+      const ref = midPrice(); // pre-trade mid, the same reference quoteImpact uses
       let remaining = size, notional = 0, filled = 0, levelsHit = 0;
       const fills = [];
       while (remaining > 1e-9 && book.length) {
@@ -130,7 +131,6 @@
         if (lvl.size <= 1e-9) book.shift();
       }
       const avgPrice = filled > 0 ? notional / filled : null;
-      const ref = midPrice();
       const slippage = avgPrice === null ? 0 : round(Math.abs(avgPrice - ref), 4);
       const impactBps = avgPrice === null ? 0 : round((Math.abs(avgPrice - ref) / ref) * 10000, 3);
       const unfilled = round(Math.max(0, remaining), 6);

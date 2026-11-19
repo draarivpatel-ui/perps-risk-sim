@@ -516,3 +516,12 @@ test('76: riskReport position liquidation price is finite', () => {
   assert.ok(Number.isFinite(r.position.liquidationPrice));
   assert.ok(r.position.liquidationPrice < 42000);
 });
+
+test('marketOrder reports slippage against the pre-trade mid, matching quoteImpact', () => {
+  const quote = P.Orderbook({ mid: 30000 }).quoteImpact('buy', 40);
+  const fill = P.Orderbook({ mid: 30000 }).marketOrder('buy', 40);
+  assert.equal(fill.avgPrice, quote.avgPrice);
+  assert.equal(fill.slippage, quote.slippage);
+  assert.equal(fill.impactBps, quote.impactBps);
+  assert.ok(fill.newMid > 30000);
+});
