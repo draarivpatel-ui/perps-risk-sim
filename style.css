@@ -17,7 +17,6 @@
   --series-2: #d95926;
   --series-3: #199e70;
   --good: #199e70;
-  --warning: #eda100;
   --critical: #e66767;
   --radius: 14px;
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
@@ -41,7 +40,6 @@ html[data-theme="light"] {
   --series-2: #eb6834;
   --series-3: #1baf7a;
   --good: #1baf7a;
-  --warning: #b8790a;
   --critical: #e34948;
 }
 * { box-sizing: border-box; }
@@ -138,7 +136,6 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .switch { display: flex; align-items: center; gap: 10px; font-size: 13.5px; color: var(--text-secondary); margin-bottom: 14px; cursor: pointer; }
 .switch input { accent-color: var(--accent); width: 16px; height: 16px; }
 .btn-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
-.hint { color: var(--muted); font-size: 12px; margin: 14px 0 0; }
 
 .readout { display: grid; gap: 8px; background: var(--bg-2); border: 1px solid var(--line-soft); border-radius: 10px; padding: 13px 15px; margin-top: 16px; }
 .readout > div { display: flex; justify-content: space-between; gap: 14px; font-size: 12px; }
@@ -166,7 +163,6 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 .axis-line { stroke: var(--line); stroke-width: 1; }
 .grid-line { stroke: var(--line-soft); stroke-width: 1; }
 .axis-text { fill: var(--muted); font-size: 10px; font-family: var(--mono); }
-.bar-label { fill: var(--text-secondary); font-size: 10px; font-family: var(--mono); }
 .line-series { fill: none; stroke-width: 2; }
 .tooltip {
   position: fixed; pointer-events: none; z-index: 50; background: var(--surface-2);
