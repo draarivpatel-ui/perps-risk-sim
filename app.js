@@ -81,7 +81,7 @@
     if (opts.hline !== undefined) {
       el('line', { x1: padL, y1: Y(opts.hline), x2: w - padR, y2: Y(opts.hline), stroke: 'var(--accent-3)', 'stroke-width': 1.5, 'stroke-dasharray': '5 4' }, s);
     }
-    series.forEach((se, si) => {
+    series.forEach(se => {
       const d = se.points.map((p, i) => (i ? 'L' : 'M') + X(p.x).toFixed(2) + ' ' + Y(p.y).toFixed(2)).join(' ');
       el('path', { d, class: 'line-series', stroke: se.color }, s);
       if (se.markers !== false) {
