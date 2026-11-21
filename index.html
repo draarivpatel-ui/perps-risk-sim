@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Perps Risk Sim | Orderbook, Funding & Liquidation Workbench</title>
 <meta name="description" content="A zero-dependency perpetual futures workbench: CLOB depth and price impact, funding rate TWAP clamps, isolated vs cross margin liquidation pricing, Monte Carlo GBM and jump-diffusion VaR, and a liquidation cascade stress engine.">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -22,6 +23,7 @@
       <a href="#margin">Margin</a>
       <a href="#cascade">Cascade</a>
       <a href="#var">VaR</a>
+      <a href="#risklab">Risk Lab</a>
       <a href="#report">Report</a>
     </nav>
     <button id="theme-toggle" class="theme-btn" type="button" aria-label="Toggle light or dark theme">Light</button>
@@ -32,16 +34,14 @@
 
   <section class="hero">
     <div class="hero-copy">
-      <p class="eyebrow">Perpetual futures / risk engineering / zero dependencies</p>
       <h1>See the liquidation<br>before it happens.</h1>
-      <p class="lede">Walk a real central limit orderbook, price the funding basis, solve the exact maintenance-margin liquidation price, then stress the whole book with a price shock and jump-diffusion Monte Carlo. Built for the dreamDEX Perps Builder Bounty. Everything runs locally in the browser.</p>
       <div class="hero-actions">
         <a class="btn btn-primary" href="#cascade">Run a cascade</a>
         <a class="btn btn-ghost" href="#var">Compute VaR</a>
       </div>
       <div class="hero-stats" role="group" aria-label="Workbench facts">
         <div class="stat"><span class="stat-num" id="stat-levels">12</span><span class="stat-label">book levels / side</span></div>
-        <div class="stat"><span class="stat-num" id="stat-tests">76</span><span class="stat-label">passing unit tests</span></div>
+        <div class="stat"><span class="stat-num" id="stat-tests">222</span><span class="stat-label">passing tests</span></div>
         <div class="stat"><span class="stat-num" id="stat-mc">2000</span><span class="stat-label">Monte Carlo paths</span></div>
         <div class="stat"><span class="stat-num">0</span><span class="stat-label">runtime dependencies</span></div>
       </div>
@@ -60,9 +60,7 @@
   <!-- ================= CLOB ================= -->
   <section id="clob" class="section">
     <div class="section-head">
-      <span class="kicker">01 / Market microstructure</span>
       <h2>Orderbook depth & impact</h2>
-      <p>Resting limit orders form the book. A market order walks the ladder and its average fill price drifts away from mid. A larger order consumes more levels and pays more slippage.</p>
     </div>
     <div class="grid-2">
       <div class="card">
@@ -97,9 +95,7 @@
   <!-- ================= FUNDING ================= -->
   <section id="funding" class="section">
     <div class="section-head">
-      <span class="kicker">02 / Perpetual basis</span>
       <h2>Funding rate TWAP & clamp</h2>
-      <p>The funding rate follows a time-weighted premium of mark over index plus a baseline interest component, then gets clamped to a symmetric band. Longs pay shorts when funding is positive.</p>
     </div>
     <div class="grid-2">
       <div class="card">
@@ -131,9 +127,7 @@
   <!-- ================= MARGIN ================= -->
   <section id="margin" class="section">
     <div class="section-head">
-      <span class="kicker">03 / Margin</span>
       <h2>Isolated vs cross liquidation</h2>
-      <p>Solve for the exact mark price where account equity equals the maintenance margin. Cross margin shares wallet equity across positions; isolated margin bounds the loss to the assigned collateral.</p>
     </div>
     <div class="grid-2">
       <div class="card">
@@ -147,7 +141,7 @@
         </div>
         <div class="field">
           <label for="marg-leverage">Leverage <output id="marg-leverage-out">10</output>x</label>
-          <input type="range" id="marg-leverage" min="1" max="25" value="10">
+          <input type="range" id="marg-leverage" min="1" max="10" value="10">
         </div>
         <div class="field">
           <label for="marg-price">Entry / mark price</label>
@@ -156,6 +150,10 @@
         <div class="field">
           <label for="marg-mmr">Maintenance margin rate <output id="marg-mmr-out">0.50%</output></label>
           <input type="range" id="marg-mmr" min="0.1" max="2" step="0.1" value="0.5">
+        </div>
+        <div class="field">
+          <label for="marg-wallet">Shared wallet balance (cross)</label>
+          <input type="number" id="marg-wallet" value="0" min="0" step="100">
         </div>
         <div class="readout" id="margin-readout"></div>
       </div>
@@ -172,9 +170,7 @@
   <!-- ================= CASCADE ================= -->
   <section id="cascade" class="section">
     <div class="section-head">
-      <span class="kicker">04 / Contagion</span>
       <h2>Liquidation cascade</h2>
-      <p>A price shock marks every position to market. Undercollateralized positions are force-closed into the book; each closing order pushes the price further and can trigger the next round.</p>
     </div>
     <div class="cascade-bar">
       <div class="field inline">
@@ -209,9 +205,7 @@
   <!-- ================= VAR ================= -->
   <section id="var" class="section">
     <div class="section-head">
-      <span class="kicker">05 / Tail risk</span>
       <h2>Monte Carlo GBM + jump diffusion</h2>
-      <p>Geometric Brownian motion with Merton-style Poisson jumps. Compare the 99% VaR, expected shortfall, and the probability that a leveraged position breaches its liquidation price over the horizon.</p>
     </div>
     <div class="grid-2">
       <div class="card">
@@ -242,19 +236,72 @@
     </div>
   </section>
 
+  <!-- ================= RISK LAB ================= -->
+  <section id="risklab" class="section">
+    <div class="section-head">
+      <h2>Microstructure, waterfall and modified VaR</h2>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <h3>Price impact and slippage curve</h3>
+        <p class="card-sub">Each size is quoted without mutating the book, then executed on a fresh book. The quote must agree with the fill.</p>
+        <div id="lab-impact-chart" class="chart"></div>
+        <div class="chart-legend" id="lab-impact-legend"></div>
+        <div class="check-row" id="lab-impact-checks"></div>
+        <div class="readout" id="lab-impact-readout"></div>
+      </div>
+      <div class="card">
+        <h3>Insurance fund and ADL waterfall</h3>
+        <div class="field">
+          <label for="lab-fund">Insurance fund (USD) <output id="lab-fund-out">25000</output></label>
+          <input type="range" id="lab-fund" min="0" max="6000" step="250" value="2500">
+        </div>
+        <div class="field">
+          <label for="lab-gap">Fill shortfall (USD) <output id="lab-gap-out">3000</output></label>
+          <input type="range" id="lab-gap" min="0" max="6000" step="250" value="3000">
+        </div>
+        <div id="lab-waterfall-chart" class="chart"></div>
+        <div class="chart-legend" id="lab-waterfall-legend"></div>
+        <div class="check-row" id="lab-waterfall-checks"></div>
+        <div class="readout" id="lab-waterfall-readout"></div>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <h3>Cross-margin netting</h3>
+        <p class="card-sub">Netting a long and a short leg against each other before charging initial margin.</p>
+        <div class="readout" id="lab-margin-readout"></div>
+        <div class="check-row" id="lab-margin-checks"></div>
+      </div>
+      <div class="card">
+        <h3>Cornish-Fisher modified VaR</h3>
+        <p class="card-sub">Skewness and excess kurtosis of a seeded return sample shift the normal quantile.</p>
+        <div class="readout" id="lab-var-readout"></div>
+        <div class="check-row" id="lab-var-checks"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Funding ladder across intervals</h3>
+      <p class="card-sub">A clamped funding rate applied to a position over eight intervals, with the cash-and-carry break-even.</p>
+      <div id="lab-funding-chart" class="chart"></div>
+      <div class="chart-legend" id="lab-funding-legend"></div>
+      <div class="table-wrap"><table id="lab-table" class="data-table"><caption class="sr-only">Risk lab verification table</caption></table></div>
+    </div>
+  </section>
+
   <!-- ================= REPORT ================= -->
   <section id="report" class="section">
     <div class="section-head">
-      <span class="kicker">06 / Desk summary</span>
       <h2>Combined risk report</h2>
-      <p>One deterministic snapshot joining book microstructure, funding, position margin and parametric VaR. Export it as JSON to reproduce the numbers.</p>
     </div>
     <div class="card">
       <div class="btn-row">
         <button class="btn btn-primary" id="report-run" type="button">Build report</button>
+        <button class="btn btn-ghost" id="report-verify" type="button">Verification bundle</button>
         <button class="btn btn-ghost" id="report-copy" type="button">Copy JSON</button>
         <button class="btn btn-ghost" id="report-download" type="button">Download .json</button>
       </div>
+      <div class="check-row" id="report-checks" aria-live="polite"></div>
       <pre id="report-output" class="code-block" aria-label="Risk report JSON">Press "Build report" to assemble the deterministic snapshot.</pre>
     </div>
   </section>
@@ -269,6 +316,7 @@
 </footer>
 
 <script src="src/perps.js"></script>
+<script src="src/risklab.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

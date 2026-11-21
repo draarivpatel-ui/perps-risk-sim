@@ -2,9 +2,20 @@
 (function () {
   'use strict';
   const P = window.Perps;
+  const A = window.PerpsRiskLab;
   const $ = id => document.getElementById(id);
   const NS = 'http://www.w3.org/2000/svg';
   const SERIES = ['var(--series-1)', 'var(--series-2)', 'var(--series-3)'];
+  function esc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  // Read a numeric input defensively: fall back when blank or non-finite and
+  // clamp into [lo, hi] so hand-typed values cannot poison the math.
+  function numIn(id, fallback, lo, hi) {
+    const v = Number($(id).value);
+    const n = Number.isFinite(v) ? v : fallback;
+    return Math.min(hi, Math.max(lo, n));
+  }
 
   // ---- tooltip ------------------------------------------------------------
   let tip;
@@ -38,14 +49,14 @@
   }
   function svgRoot(id, w, h) {
     const c = $(id); c.innerHTML = '';
-    const s = el('svg', { viewBox: '0 0 ' + w + ' ' + h, width: '100%', height: h, role: 'img' }, c);
+    const s = el('svg', { viewBox: '0 0 ' + w + ' ' + h, width: '100%', height: h, role: 'img', 'aria-label': id.replace(/[-_]/g, ' ') + ' chart' }, c);
     s.style.display = 'block'; s.style.overflow = 'visible'; return s;
   }
   function readout(id, rows) {
     const c = $(id); c.innerHTML = '';
     for (const [k, v] of rows) {
       const d = document.createElement('div');
-      d.innerHTML = '<span>' + k + '</span><b>' + v + '</b>';
+      d.innerHTML = '<span>' + esc(k) + '</span><b>' + esc(v) + '</b>';
       c.appendChild(d);
     }
   }
@@ -88,7 +99,7 @@
         se.points.forEach(p => {
           const c = el('circle', { cx: X(p.x), cy: Y(p.y), r: 4, fill: se.color, stroke: 'var(--surface-1)', 'stroke-width': 2 }, s);
           c.style.cursor = 'crosshair';
-          c.addEventListener('mousemove', e => showTip(e, '<b>' + (opts.xLabel ? opts.xLabel(p.x) : p.x) + '</b><br>' + se.label + ': ' + (opts.valFmt ? opts.valFmt(p.y) : p.y.toFixed(2))));
+          c.addEventListener('mousemove', e => showTip(e, '<b>' + esc(opts.xLabel ? opts.xLabel(p.x) : p.x) + '</b><br>' + esc(se.label) + ': ' + esc(opts.valFmt ? opts.valFmt(p.y) : p.y.toFixed(2))));
           c.addEventListener('mouseleave', hideTip);
         });
       }
@@ -122,7 +133,7 @@
       const hit = el('rect', { x: padL + i * step, y: padT, width: step, height: plotH, fill: 'transparent' }, s);
       hit.style.cursor = 'crosshair';
       const lbl = opts.labels ? opts.labels[i] : String(i);
-      hit.addEventListener('mousemove', e => showTip(e, '<b>' + lbl + '</b><br>' + (opts.valFmt ? opts.valFmt(v) : v.toFixed(0))));
+      hit.addEventListener('mousemove', e => showTip(e, '<b>' + esc(lbl) + '</b><br>' + esc(opts.valFmt ? opts.valFmt(v) : v.toFixed(0))));
       hit.addEventListener('mouseleave', hideTip);
     });
     if (opts.xLabels) {
@@ -158,7 +169,7 @@
   // ---- CLOB ---------------------------------------------------------------
   let clobBook = null;
   function renderCLOB(execute) {
-    const mid = Number($('clob-mid').value) || 30000;
+    const mid = numIn('clob-mid', 30000, 1, 1e9);
     if (!clobBook || clobBook.midCache !== mid) {
       clobBook = P.Orderbook({ mid, levels: 12, baseSize: 8, step: mid * 0.00008 });
       clobBook.midCache = mid;
@@ -166,8 +177,8 @@
     const side = $('clob-side').value;
     const size = Number($('clob-size').value);
     $('clob-size-out').textContent = String(size);
-    // depth ladder chart: bid sizes (negative-ish) and ask sizes
-    const snap = P.Orderbook({ mid, levels: 10, baseSize: 8, step: mid * 0.00008 }).snapshot();
+    // depth ladder chart reads the live book so executed orders show up
+    const snap = clobBook.snapshot();
     const bidSizes = snap.bids.slice(0, 10).map(l => l.size);
     const askSizes = snap.asks.slice(0, 10).map(l => l.size);
     // cumulative depth from the mid outward
@@ -202,9 +213,9 @@
 
   // ---- funding ------------------------------------------------------------
   function renderFunding() {
-    const prem = Number($('fund-premium').value);
-    const cap = Number($('fund-cap').value);
-    const interest = Number($('fund-interest').value);
+    const prem = numIn('fund-premium', 10, -200, 200);
+    const cap = numIn('fund-cap', 50, 5, 150);
+    const interest = numIn('fund-interest', 1, 0, 100);
     $('fund-premium-out').textContent = String(prem);
     $('fund-cap-out').textContent = String(cap);
     const index = 30000;
@@ -245,9 +256,9 @@
   // ---- margin -------------------------------------------------------------
   function renderMargin() {
     const side = $('marg-side').value;
-    const lev = Number($('marg-leverage').value);
-    const price = Number($('marg-price').value) || 30000;
-    const mmr = Number($('marg-mmr').value) / 100;
+    const lev = numIn('marg-leverage', 10, 1, 10);
+    const price = numIn('marg-price', 30000, 0.0001, 1e9);
+    const mmr = numIn('marg-mmr', 0.5, 0, 10) / 100;
     $('marg-leverage-out').textContent = String(lev);
     $('marg-mmr-out').textContent = (mmr * 100).toFixed(2) + '%';
     const collateral = price / lev;
@@ -281,7 +292,8 @@
       ['distance to liquidation', liq === null ? 'n/a' : ((Math.abs(price - liq) / price) * 100).toFixed(2) + '%']
     ]);
     const checks = $('margin-checks'); checks.innerHTML = '';
-    const iso = P.isolatedVsCross(pos, { maintenanceMarginRate: mmr });
+    const wallet = numIn('marg-wallet', 0, 0, 1e9);
+    const iso = P.isolatedVsCross(pos, { maintenanceMarginRate: mmr }, wallet);
     const items = [
       { t: 'isolated liq ' + iso.isolated.liqPrice, ok: true },
       { t: 'cross liq ' + iso.cross.liqPrice, ok: true },
@@ -292,13 +304,13 @@
       const s = document.createElement('span'); s.className = 'chip ' + (it.ok ? 'ok' : 'bad'); s.textContent = it.t; checks.appendChild(s);
     }
   }
-  ['marg-side', 'marg-leverage', 'marg-price', 'marg-mmr'].forEach(id => $(id).addEventListener('input', renderMargin));
+  ['marg-side', 'marg-leverage', 'marg-price', 'marg-mmr', 'marg-wallet'].forEach(id => $(id).addEventListener('input', renderMargin));
 
   // ---- cascade ------------------------------------------------------------
   function renderCascade() {
-    const shock = Number($('casc-shock').value);
-    const count = Number($('casc-count').value);
-    const lev = Number($('casc-lev').value);
+    const shock = numIn('casc-shock', -9, -99, 25);
+    const count = Math.round(numIn('casc-count', 8, 1, 24));
+    const lev = numIn('casc-lev', 10, 1, 25);
     $('casc-shock-out').textContent = String(shock);
     const mid = 30000;
     const positions = [];
@@ -347,9 +359,9 @@
 
   // ---- VaR ----------------------------------------------------------------
   function renderVaR() {
-    const vol = Number($('var-vol').value) / 100;
-    const lambda = Number($('var-jump').value);
-    const horizon = Number($('var-horizon').value);
+    const vol = numIn('var-vol', 60, 0, 200) / 100;
+    const lambda = numIn('var-jump', 0.5, 0, 10);
+    const horizon = Math.round(numIn('var-horizon', 1, 1, 90));
     const jumpOn = $('var-enable-jump').checked;
     $('var-vol-out').textContent = (vol * 100).toFixed(0) + '%';
     $('var-jump-out').textContent = String(lambda);
@@ -396,22 +408,175 @@
   ['var-vol', 'var-jump', 'var-horizon', 'var-enable-jump'].forEach(id => $(id).addEventListener('input', renderVaR));
   $('var-run').addEventListener('click', renderVaR);
 
+  // ---- risk lab -----------------------------------------------------------
+  function chips(id, items) {
+    const c = $(id); c.innerHTML = '';
+    for (const it of items) {
+      const s = document.createElement('span');
+      s.className = 'chip ' + it.tone; s.textContent = it.t; c.appendChild(s);
+    }
+  }
+  function dataTable(id, headers, rows) {
+    const t = $(id);
+    const head = '<thead><tr>' + headers.map(h => '<th scope="col">' + esc(h) + '</th>').join('') + '</tr></thead>';
+    const body = '<tbody>' + rows.map(r => '<tr>' + r.map(v =>
+      '<td' + (typeof v === 'number' ? ' class="num"' : '') + '>' + esc(v) + '</td>').join('') + '</tr>').join('') + '</tbody>';
+    t.innerHTML = head + body;
+  }
+
+  let labBundle = null;
+  function renderRiskLab() {
+    const fund = numIn('lab-fund', 2500, 0, 6000);
+    const gap = numIn('lab-gap', 3000, 0, 6000);
+    $('lab-fund-out').textContent = String(fund);
+    $('lab-gap-out').textContent = String(gap);
+
+    const curve = A.slippageCurve({ mid: 30000 });
+    const kyle = A.kyleLambda({ mid: 30000, steps: 12 });
+    const wf = A.insuranceWaterfall({ fund, fillPrice: 29000 - gap / 5 });
+    const margin = A.portfolioMargin();
+    const ladder = A.fundingLadder({ intervals: 8 });
+    const sim = P.simulatePaths({ s0: 30000, paths: 1200, horizonDays: 1, stepsPerDay: 24, seed: 'risk-lab' });
+    const returns = sim.terminal.map(s => (s - 30000) / 30000);
+    const cf = A.cornishFisherVaR(returns, 0.99, 100000);
+    labBundle = A.verificationBundle({ paths: 600, seed: 'risk-lab' });
+
+    // Impact curve: slippage bps by size, plus the fitted Kyle line.
+    const sizes = curve.rows.map(r => r.size);
+    lineChart('lab-impact-chart', [
+      { label: 'executed slippage (bps)', color: SERIES[0], points: curve.rows.map(r => ({ x: r.size, y: r.filledBps })) },
+      { label: 'Kyle linear fit', color: SERIES[1], points: sizes.map(s => ({ x: s, y: kyle.lambda * s / 30000 * 10000 })) }
+    ], { h: 210, xLabel: s => 'size ' + s, valFmt: v => v.toFixed(3) + ' bps', xFmt: v => v.toFixed(0) });
+    legend('lab-impact-legend', [
+      { label: 'executed slippage', color: SERIES[0] },
+      { label: 'Kyle lambda fit', color: SERIES[1] }
+    ]);
+    chips('lab-impact-checks', [
+      { t: 'quote == fill: ' + (curve.allQuotesMatch ? 'OK' : 'FAIL'), tone: curve.allQuotesMatch ? 'ok' : 'bad' },
+      { t: 'lambda ' + kyle.lambda.toFixed(4), tone: 'info' },
+      { t: 'R2 ' + kyle.r2.toFixed(3), tone: 'info' }
+    ]);
+    readout('lab-impact-readout', [
+      ['VWAP at depth 30', String(A.bookVWAP(P.Orderbook({ mid: 30000 }), 'buy', 30).vwap)],
+      ['Kyle lambda (price / unit)', kyle.lambda.toFixed(5)],
+      ['lambda (bps / unit)', kyle.lambdaBpsPerUnit.toFixed(6)],
+      ['regression R2', kyle.r2.toFixed(4)],
+      ['sizes checked', String(curve.rows.length)]
+    ]);
+
+    // Waterfall: fund used versus socialized versus uncovered.
+    columns('lab-waterfall-chart', [wf.fundUsed, wf.socialized.reduce((s, a) => s + a.charged, 0), wf.uncovered], {
+      color: SERIES[2], h: 200, labels: ['fund used', 'socialized', 'uncovered'],
+      valFmt: v => '$' + v.toFixed(2)
+    });
+    legend('lab-waterfall-legend', [{ label: 'shortfall allocation (USD)', color: SERIES[2] }]);
+    chips('lab-waterfall-checks', [
+      { t: 'reconciles: ' + (wf.reconciles ? 'OK' : 'FAIL'), tone: wf.reconciles ? 'ok' : 'bad' },
+      { t: 'fund ' + wf.fundUsed + ' / ' + wf.fundBefore, tone: 'info' },
+      { t: 'ADL ' + wf.socialized.length + ' accounts', tone: 'info' }
+    ]);
+    readout('lab-waterfall-readout', [
+      ['shortfall', '$' + wf.shortfall.toFixed(2)],
+      ['insurance fund used', '$' + wf.fundUsed.toFixed(2)],
+      ['socialized (ADL)', '$' + wf.socialized.reduce((s, a) => s + a.charged, 0).toFixed(2)],
+      ['uncovered', '$' + wf.uncovered.toFixed(2)],
+      ['fund after', '$' + wf.fundAfter.toFixed(2)]
+    ]);
+
+    readout('lab-margin-readout', [
+      ['gross notional', '$' + margin.grossNotional],
+      ['net notional', '$' + margin.netNotional],
+      ['isolated margin', '$' + margin.isolatedMargin],
+      ['net margin', '$' + margin.netMargin],
+      ['hedge benefit', '$' + margin.hedgeBenefit + ' (' + margin.hedgeBenefitPct + '%)'],
+      ['total unrealized PnL', '$' + margin.totalPnl]
+    ]);
+    chips('lab-margin-checks', [
+      { t: 'net <= isolated: ' + (margin.netMarginNeverExceedsIsolated ? 'OK' : 'FAIL'), tone: margin.netMarginNeverExceedsIsolated ? 'ok' : 'bad' },
+      { t: 'legs ' + margin.legs, tone: 'info' }
+    ]);
+
+    readout('lab-var-readout', [
+      ['sample paths', String(cf.moments.n)],
+      ['skewness', String(cf.moments.skew)],
+      ['excess kurtosis', String(cf.moments.excessKurtosis)],
+      ['normal z / CF z', cf.z.toFixed(3) + ' / ' + cf.zCornishFisher.toFixed(3)],
+      ['parametric VaR 99%', cf.parametricVarPct + '%'],
+      ['modified VaR 99%', cf.modifiedVarPct + '%'],
+      ['historical VaR / CVaR', cf.historicalVarPct + '% / ' + cf.historicalCvarPct + '%']
+    ]);
+    chips('lab-var-checks', [
+      { t: 'CVaR >= VaR: ' + (cf.historicalCvarPct >= cf.historicalVarPct ? 'OK' : 'FAIL'), tone: cf.historicalCvarPct >= cf.historicalVarPct ? 'ok' : 'bad' },
+      { t: 'skew ' + cf.moments.skew, tone: 'info' }
+    ]);
+
+    lineChart('lab-funding-chart', [
+      { label: 'cumulative funding payment (USD)', color: SERIES[0], points: ladder.rows.map(r => ({ x: r.interval, y: r.cumulative })) }
+    ], { h: 190, xLabel: x => 'interval ' + x, valFmt: v => '$' + v.toFixed(2), xFmt: v => v.toFixed(0), minX: 1, maxX: ladder.intervals });
+    legend('lab-funding-legend', [{ label: 'cumulative funding on a long', color: SERIES[0] }]);
+
+    dataTable('lab-table', ['model', 'metric', 'value', 'check'], [
+      ['orderbook', 'quote equals fill', curve.allQuotesMatch ? 'yes' : 'no', curve.allQuotesMatch ? 'OK' : 'FAIL'],
+      ['orderbook', 'Kyle R2', kyle.r2, kyle.lambda > 0 ? 'OK' : 'FAIL'],
+      ['waterfall', 'shortfall reconciles', wf.reconciles ? 'yes' : 'no', wf.reconciles ? 'OK' : 'FAIL'],
+      ['margin', 'hedge benefit USD', margin.hedgeBenefit, margin.netMarginNeverExceedsIsolated ? 'OK' : 'FAIL'],
+      ['funding', 'ladder reconciles', ladder.cumulativeMatchesSum ? 'yes' : 'no', ladder.cumulativeMatchesSum ? 'OK' : 'FAIL'],
+      ['VaR', 'CVaR at least VaR', cf.historicalCvarPct >= cf.historicalVarPct ? 'yes' : 'no', cf.historicalCvarPct >= cf.historicalVarPct ? 'OK' : 'FAIL'],
+      ['bundle', 'all self checks', labBundle.allChecksPass ? 'yes' : 'no', labBundle.allChecksPass ? 'OK' : 'FAIL']
+    ]);
+  }
+  ['lab-fund', 'lab-gap'].forEach(id => $(id).addEventListener('input', renderRiskLab));
+
   // ---- report -------------------------------------------------------------
   let reportJSON = '';
-  $('report-run').addEventListener('click', () => {
-    reportJSON = JSON.stringify(P.riskReport({ mid: 30000, leverage: 10, collateral: 3000, orderSize: 20 }), null, 2);
+  let reportName = 'perps-risk-report.json';
+  function reportChips(bundle) {
+    if (!bundle || !bundle.selfChecks) {
+      chips('report-checks', [{ t: 'deterministic desk snapshot', tone: 'info' }]);
+      return;
+    }
+    const entries = Object.entries(bundle.selfChecks);
+    const passing = entries.filter(([, v]) => v === true).length;
+    chips('report-checks', [
+      { t: 'self checks ' + passing + '/' + entries.length, tone: passing === entries.length ? 'ok' : 'bad' },
+      { t: 'all pass: ' + (bundle.allChecksPass ? 'OK' : 'FAIL'), tone: bundle.allChecksPass ? 'ok' : 'bad' },
+      { t: 'paths ' + bundle.paths, tone: 'info' }
+    ]);
+  }
+  function buildReport(full) {
+    const bundle = full
+      ? (labBundle || A.verificationBundle({ paths: 600, seed: 'risk-lab' }))
+      : P.riskReport({ mid: 30000, leverage: 10, collateral: 3000, orderSize: 20 });
+    reportJSON = JSON.stringify(bundle, null, 2);
+    reportName = full ? 'perps-risk-verification.json' : 'perps-risk-report.json';
     $('report-output').textContent = reportJSON;
-  });
+    reportChips(bundle);
+  }
+  $('report-run').addEventListener('click', () => buildReport(false));
+  $('report-verify').addEventListener('click', () => buildReport(true));
   $('report-copy').addEventListener('click', () => {
     if (!reportJSON) { $('report-output').textContent = 'Press "Build report" first.'; return; }
-    navigator.clipboard.writeText(reportJSON).catch(() => {});
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(reportJSON).catch(() => fallbackCopy());
+      return;
+    }
+    fallbackCopy();
+    function fallbackCopy() {
+      const ta = document.createElement('textarea');
+      ta.value = reportJSON;
+      ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch (e) { /* clipboard unavailable */ }
+      document.body.removeChild(ta);
+    }
   });
   $('report-download').addEventListener('click', () => {
     if (!reportJSON) { $('report-output').textContent = 'Press "Build report" first.'; return; }
     const blob = new Blob([reportJSON], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'perps-risk-report.json';
+    a.download = reportName;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   });
@@ -423,6 +588,7 @@
     renderMargin();
     renderCascade();
     renderVaR();
+    renderRiskLab();
   }
   renderAll();
 })();

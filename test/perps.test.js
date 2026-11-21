@@ -305,7 +305,7 @@ test('45: more collateral pushes the liquidation price further away', () => {
 
 test('46: higher leverage pushes the liquidation price closer to entry', () => {
   const lowLev = P.liquidationPrice(P.position({ leverage: 2, collateral: 15000 }));
-  const highLev = P.liquidationPrice(P.position({ leverage: 20, collateral: 1500 }));
+  const highLev = P.liquidationPrice(P.position({ leverage: 10, collateral: 3000 }));
   assert.ok(highLev > lowLev || lowLev === null);
 });
 
@@ -487,7 +487,7 @@ test('71: liquidationStress reports a probability in [0,1]', () => {
 });
 
 test('72: lower leverage reduces breach probability', () => {
-  const high = P.liquidationStress({ paths: 400, leverage: 20, collateral: 1500, seed: 'lev' });
+  const high = P.liquidationStress({ paths: 400, leverage: 10, collateral: 3000, seed: 'lev' });
   const low = P.liquidationStress({ paths: 400, leverage: 2, collateral: 15000, seed: 'lev' });
   assert.ok(low.breachProbability <= high.breachProbability);
 });
