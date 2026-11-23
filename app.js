@@ -3,6 +3,7 @@
   'use strict';
   const P = window.Perps;
   const A = window.PerpsRiskLab;
+  const CL = window.PerpsCascadeLab;
   const $ = id => document.getElementById(id);
   const NS = 'http://www.w3.org/2000/svg';
   const SERIES = ['var(--series-1)', 'var(--series-2)', 'var(--series-3)'];
@@ -581,12 +582,178 @@
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   });
 
+  // ---- cascade lab: regime comparator, sweep chart, audit, bookmarks -----
+  function clOptions() {
+    return {
+      fund: numIn('cl-fund', 4000, 0, 1e9),
+      universeSize: Math.round(numIn('cl-count', 14, 4, 24))
+    };
+  }
+  function clShock() { return numIn('cl-shock', -25, -99, 500); }
+
+  function renderCascadeLab() {
+    const shock = clShock();
+    const opts = clOptions();
+    const table = CL.comparisonTable(shock, opts);
+    dataTable('cl-table',
+      ['regime', 'liq price', 'liq dist %', 'liquidated', 'bad debt $', 'fund surv %', 'slip %', 'ADL', 'unpaid $', 'conserved'],
+      table.regimes.map(r => [
+        r.regimeName, r.liquidationPrice === null ? 'n/a' : r.liquidationPrice,
+        r.liquidationDistancePct === null ? 'n/a' : r.liquidationDistancePct,
+        r.liquidatedCount + (r.survivingCount ? ' / ' + r.survivingCount + ' live' : ''),
+        r.badDebt, r.insuranceSurvivalPct, r.cascadeImpactPct,
+        r.adlAccounts, r.unpaidBadDebt, r.conserved ? 'OK' : 'FAIL'
+      ]));
+    chips('cl-checks', [
+      { t: 'conservation ' + table.regimes.filter(r => r.conserved).length + '/' + table.regimes.length, tone: table.regimes.every(r => r.conserved) ? 'ok' : 'bad' },
+      { t: 'breaker halted: ' + table.regimes.some(r => r.breakerHalted), tone: 'info' },
+      { t: 'unpaid bad debt ' + table.regimes.filter(r => r.unpaidBadDebt > 0).length + ' regime(s)', tone: 'info' },
+      { t: 'shock ' + shock + '%', tone: 'info' }
+    ]);
+
+    const regimeId = $('cl-regime').value || 'cross20';
+    const sweep = CL.shockSweep(regimeId, undefined, opts);
+    const fund = opts.fund;
+    const series = [
+      { label: 'liquidated notional ($)', color: SERIES[1], points: sweep.rows.map(r => ({ x: r.shockPct, y: r.liquidatedNotional })) },
+      { label: 'insurance fund spent ($)', color: SERIES[0], points: sweep.rows.map(r => ({ x: r.shockPct, y: fund * (100 - r.fundSurvivalPct) / 100 })) }
+    ];
+    if (sweep.cliffShockPct !== null) {
+      const maxY = Math.max(...sweep.rows.map(r => r.liquidatedNotional), fund);
+      series.push({ label: 'ADL / insolvency cliff', color: 'var(--accent-3)', markers: false, points: [{ x: sweep.cliffShockPct, y: 0 }, { x: sweep.cliffShockPct, y: maxY }] });
+    }
+    const svg = lineChart('cl-sweep-chart', series, {
+      h: 230, xFmt: v => v.toFixed(0) + '%', tickFmt: v => '$' + (v / 1000).toFixed(0) + 'k',
+      valFmt: v => '$' + v.toFixed(0), xLabel: v => 'shock ' + v.toFixed(0) + '%'
+    });
+    const paths = svg.querySelectorAll('path.line-series');
+    if (sweep.cliffShockPct !== null && paths.length === 3) paths[2].setAttribute('stroke-dasharray', '6 5');
+    const legendItems = [
+      { label: 'cumulative liquidated notional', color: SERIES[1] },
+      { label: 'insurance fund spend', color: SERIES[0] }
+    ];
+    if (sweep.cliffShockPct !== null) legendItems.push({ label: 'ADL / insolvency cliff at ' + sweep.cliffShockPct + '%', color: 'var(--accent-3)' });
+    legend('cl-sweep-legend', legendItems);
+  }
+
+  let auditBundle = null;
+  function buildAudit() {
+    auditBundle = CL.buildAuditBundle(clShock(), clOptions());
+    readout('cl-digest-readout', [
+      ['sha256 (unkeyed, FIPS 180-4)', auditBundle.digest],
+      ['payload', 'report {' + auditBundle.report.regimes.length + ' regimes} @ ' + clShock() + '%'],
+      ['format coverage', 'JSON + CSV + Markdown share this digest'],
+      ['disclosure', 'tamper-detection digest, not a signature']
+    ]);
+    chips('cl-export-checks', [
+      { t: 'audit built @ ' + clShock() + '%', tone: 'ok' },
+      { t: 'digest ' + auditBundle.digest.slice(0, 16) + '...', tone: 'info' }
+    ]);
+    return auditBundle;
+  }
+  $('cl-export-build').addEventListener('click', buildAudit);
+  function auditDownload(text, name, type) {
+    const blob = new Blob([text], { type });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+  $('cl-export-json').addEventListener('click', () => {
+    if (!auditBundle) buildAudit();
+    auditDownload(auditBundle.json, 'perps-stress-audit.json', 'application/json');
+  });
+  $('cl-export-csv').addEventListener('click', () => {
+    if (!auditBundle) buildAudit();
+    auditDownload(auditBundle.csv, 'perps-stress-audit.csv', 'text/csv');
+  });
+  $('cl-export-md').addEventListener('click', () => {
+    if (!auditBundle) buildAudit();
+    auditDownload(auditBundle.markdown, 'perps-stress-audit.md', 'text/markdown');
+  });
+  $('cl-export-copy').addEventListener('click', () => {
+    if (!auditBundle) buildAudit();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(auditBundle.json).catch(() => {});
+    }
+  });
+  $('cl-verify').addEventListener('click', () => {
+    if (!auditBundle) buildAudit();
+    const v = CL.verifyAuditJson(auditBundle.json);
+    chips('cl-export-checks', [
+      { t: v.valid ? 'digest verified: report intact' : 'verify failed: ' + v.reason, tone: v.valid ? 'ok' : 'bad' }
+    ]);
+  });
+  $('cl-tamper').addEventListener('click', () => {
+    if (!auditBundle) buildAudit();
+    const tampered = auditBundle.json.replace('"liquidatedCount": ' + auditBundle.report.regimes[0].liquidatedCount, '"liquidatedCount": 0');
+    const v = CL.verifyAuditJson(tampered);
+    chips('cl-export-checks', [
+      { t: v.valid ? 'tamper MISSED: edited copy still verifies' : 'tamper test passed: edited copy rejected', tone: v.valid ? 'bad' : 'ok' },
+      { t: 'recompute -> ' + (v.recomputed || '').slice(0, 16) + '...', tone: 'info' }
+    ]);
+  });
+
+  // Bookmark: encode the comparator state into the URL hash.
+  $('cl-bookmark').addEventListener('click', () => {
+    const h = CL.encodeBookmark({
+      shock: clShock(), regime: $('cl-regime').value || 'cross20',
+      fund: numIn('cl-fund', 4000, 0, 1e9), positions: Math.round(numIn('cl-count', 14, 4, 24))
+    });
+    if (history.replaceState) history.replaceState(null, '', h); else location.hash = h;
+    chips('cl-checks', [
+      { t: 'bookmarked ' + h.slice(0, 24) + '...', tone: 'ok' },
+      { t: 'conservation ' + CL.comparisonTable(clShock(), clOptions()).regimes.filter(r => r.conserved).length + '/5', tone: 'info' }
+    ]);
+  });
+
+  function restoreBookmark() {
+    const state = CL.decodeBookmark(location.hash);
+    if (!state) return;
+    if (state.shock !== undefined) $('cl-shock').value = String(state.shock);
+    if (state.regime !== undefined) $('cl-regime').value = state.regime;
+    if (state.fund !== undefined) $('cl-fund').value = String(state.fund);
+    if (state.positions !== undefined) $('cl-count').value = String(state.positions);
+  }
+
+  // Self-test panel
+  $('selftest-run').addEventListener('click', () => {
+    const st = CL.selfTests();
+    chips('selftest-count', [
+      { t: st.passed + '/' + st.total + ' checks pass', tone: st.allPass ? 'ok' : 'bad' }
+    ]);
+    const list = $('selftest-list');
+    list.innerHTML = '';
+    for (const c of st.checks) {
+      const row = document.createElement('div');
+      row.className = 'selftest-row';
+      row.innerHTML = '<span class="selftest-mark ' + (c.pass ? 'pass' : 'fail') + '">' + (c.pass ? 'PASS' : 'FAIL') + '</span>' +
+        '<span class="selftest-name">' + esc(c.name) + '</span>' +
+        '<span class="selftest-detail">' + esc(c.detail) + '</span>';
+      list.appendChild(row);
+    }
+  });
+
+  // Populate the sweep-regime select, honor a bookmark, then wire inputs.
+  (function initCascadeLab() {
+    const sel = $('cl-regime');
+    for (const r of CL.REGIMES) {
+      const o = document.createElement('option');
+      o.value = r.id; o.textContent = r.name;
+      sel.appendChild(o);
+    }
+    restoreBookmark();
+    ['cl-shock', 'cl-regime', 'cl-fund', 'cl-count'].forEach(id => $(id).addEventListener('input', renderCascadeLab));
+  })();
+
   function renderAll() {
     heroImpact();
     renderCLOB(false);
     renderFunding();
     renderMargin();
     renderCascade();
+    renderCascadeLab();
     renderVaR();
     renderRiskLab();
   }

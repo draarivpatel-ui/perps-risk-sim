@@ -4,10 +4,11 @@
   "description": "Zero-dependency perpetual futures orderbook, funding, liquidation cascade and VaR simulator",
   "private": true,
   "scripts": {
-    "test": "node --test test/perps.test.js test/risklab.test.js test/adversarial.test.js test/compliance.test.js",
+    "test": "node --test test/perps.test.js test/risklab.test.js test/adversarial.test.js test/cascadelab.test.js test/compliance.test.js",
     "test:core": "node --test test/perps.test.js",
     "test:risklab": "node --test test/risklab.test.js",
     "test:adversarial": "node --test test/adversarial.test.js",
+    "test:cascadelab": "node --test test/cascadelab.test.js",
     "test:compliance": "node --test test/compliance.test.js"
   },
   "license": "MIT"

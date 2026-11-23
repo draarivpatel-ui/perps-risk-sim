@@ -22,6 +22,7 @@
       <a href="#funding">Funding</a>
       <a href="#margin">Margin</a>
       <a href="#cascade">Cascade</a>
+      <a href="#cascadelab">Cascade Lab</a>
       <a href="#var">VaR</a>
       <a href="#risklab">Risk Lab</a>
       <a href="#report">Report</a>
@@ -41,7 +42,7 @@
       </div>
       <div class="hero-stats" role="group" aria-label="Workbench facts">
         <div class="stat"><span class="stat-num" id="stat-levels">12</span><span class="stat-label">book levels / side</span></div>
-        <div class="stat"><span class="stat-num" id="stat-tests">222</span><span class="stat-label">passing tests</span></div>
+        <div class="stat"><span class="stat-num" id="stat-tests">486</span><span class="stat-label">passing tests</span></div>
         <div class="stat"><span class="stat-num" id="stat-mc">2000</span><span class="stat-label">Monte Carlo paths</span></div>
         <div class="stat"><span class="stat-num">0</span><span class="stat-label">runtime dependencies</span></div>
       </div>
@@ -202,6 +203,75 @@
     </div>
   </section>
 
+  <!-- ================= CASCADE LAB ================= -->
+  <section id="cascadelab" class="section">
+    <div class="section-head">
+      <h2>Margin-regime stress comparator</h2>
+    </div>
+    <div class="cascade-bar">
+      <div class="field inline">
+        <label for="cl-shock">Shock scenario</label>
+        <select id="cl-shock">
+          <option value="-10">-10% gap-down</option>
+          <option value="-25" selected>-25% gap-down</option>
+          <option value="-40">-40% flash crash</option>
+          <option value="30">+30% short squeeze</option>
+        </select>
+      </div>
+      <div class="field inline">
+        <label for="cl-regime">Sweep regime</label>
+        <select id="cl-regime"></select>
+      </div>
+      <div class="field inline">
+        <label for="cl-fund">Insurance fund override</label>
+        <input type="number" id="cl-fund" value="4000" min="0" step="500">
+      </div>
+      <div class="field inline">
+        <label for="cl-count">Positions</label>
+        <input type="number" id="cl-count" value="14" min="4" max="24" step="1">
+      </div>
+      <button class="btn btn-ghost" id="cl-bookmark" type="button">Bookmark state</button>
+    </div>
+    <div class="card">
+      <h3>Regime comparator</h3>
+      <p class="card-sub">Five exchange risk regimes against the same shock on the same synthetic book: exact liquidation price, bad-debt socialization, insurance-fund survival, cascade slippage, ADL account count and the equity conservation identity. Educational risk-modeling simulation over synthetic positions and synthetic liquidity. Not financial or trading advice.</p>
+      <div class="table-wrap"><table id="cl-table" class="data-table"><caption class="sr-only">Margin regime stress comparison</caption></table></div>
+      <div class="check-row" id="cl-checks"></div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <h3>Shock vs cascade liquidation and fund depletion</h3>
+        <p class="card-sub">Cumulative liquidated notional and insurance-fund spend across shock magnitudes. The dashed marker is the first magnitude where ADL or insolvency triggers.</p>
+        <div id="cl-sweep-chart" class="chart"></div>
+        <div class="chart-legend" id="cl-sweep-legend"></div>
+      </div>
+      <div class="card">
+        <h3>Stress-audit export</h3>
+        <p class="card-sub">JSON, CSV and Markdown reports share one unkeyed SHA-256 (FIPS 180-4) tamper-detection digest over the canonical report. CSV output is formula-injection safe.</p>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="cl-export-build" type="button">Build audit</button>
+          <button class="btn btn-ghost" id="cl-export-json" type="button">JSON</button>
+          <button class="btn btn-ghost" id="cl-export-csv" type="button">CSV</button>
+          <button class="btn btn-ghost" id="cl-export-md" type="button">Markdown</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-ghost" id="cl-verify" type="button">Verify digest</button>
+          <button class="btn btn-ghost" id="cl-tamper" type="button">Tamper test</button>
+          <button class="btn btn-ghost" id="cl-export-copy" type="button">Copy JSON</button>
+        </div>
+        <div class="check-row" id="cl-export-checks" aria-live="polite"></div>
+        <div class="readout" id="cl-digest-readout"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>In-page self-tests</h3>
+      <p class="card-sub">Live proofs in the browser: SHA-256 FIPS 180-4 known answers, leverage-to-liquidation-distance scaling, bad-debt nonnegativity and shock monotonicity, the equity conservation identity, the circuit-breaker non-worsening invariant, CSV escaping, tamper detection and #prs= bookmark round-trips.</p>
+      <button class="btn btn-primary" id="selftest-run" type="button">Run self-tests</button>
+      <div class="check-row" id="selftest-count" aria-live="polite"></div>
+      <div id="selftest-list" class="selftest-list"></div>
+    </div>
+  </section>
+
   <!-- ================= VAR ================= -->
   <section id="var" class="section">
     <div class="section-head">
@@ -317,6 +387,7 @@
 
 <script src="src/perps.js"></script>
 <script src="src/risklab.js"></script>
+<script src="src/cascade-lab.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
