@@ -810,3 +810,15 @@ test('CL 155: liquidation price reference position is long at effective leverage
   const check = C.closedFormLiqPrice('long', 30000, 30000 / r.effectiveLeverage, 1, r.mmr, 0);
   assert.equal(r.liquidationPrice, check);
 });
+
+test('CL 156: printed conservation identity matches the computed sign convention', () => {
+  const b = C.buildAuditBundle(-40);
+  assert.ok(b.markdown.includes('counterpartySettlement - unpaidBadDebt'));
+  assert.ok(!b.markdown.includes('counterpartySettlement + unpaidBadDebt'));
+  for (const r of b.report.regimes) {
+    const plus = r.remainingEquity + r.fees + r.insuranceDelta + r.counterpartySettlement + r.unpaidBadDebt;
+    const minus = r.remainingEquity + r.fees + r.insuranceDelta + r.counterpartySettlement - r.unpaidBadDebt;
+    assert.ok(Math.abs(r.initialCollateral - minus) < 0.01);
+    if (r.unpaidBadDebt > 0) assert.ok(Math.abs(r.initialCollateral - plus) > 0.01);
+  }
+});

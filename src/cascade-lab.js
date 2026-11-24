@@ -10,7 +10,7 @@
  * that reconciles to the cent by construction:
  *
  *   initialCollateral == remainingEquity + fees + insuranceDelta
- *                        + counterpartySettlement + unpaidBadDebt
+ *                        + counterpartySettlement - unpaidBadDebt
  *
  * where counterpartySettlement is the net mark-to-market transferred out of
  * the collateral pool to the external book and unpaidBadDebt is any residual
@@ -547,7 +547,7 @@
       '| --- | --- | --- | --- | --- | --- | --- | --- |',
       report.regimes.map(r => '| ' + r.regimeName + ' | ' + r.liquidationPrice + ' | ' + r.liquidatedCount + ' | ' + r.badDebt + ' | ' + r.insuranceSurvivalPct + '% | ' + r.adlAccounts + ' | ' + r.unpaidBadDebt + ' | ' + r.conserved + ' |').join('\n'),
       '',
-      'Conservation identity: initialCollateral == remainingEquity + fees + insuranceDelta + counterpartySettlement + unpaidBadDebt.',
+      'Conservation identity: initialCollateral == remainingEquity + fees + insuranceDelta + counterpartySettlement - unpaidBadDebt.',
       '',
       'sha256 (unkeyed tamper-detection digest, FIPS 180-4): ' + digest,
       '',
