@@ -43,7 +43,7 @@ Which runs:
 node --test test/perps.test.js test/risklab.test.js test/adversarial.test.js test/cascadelab.test.js test/compliance.test.js
 ```
 
-486 passing tests (76 core, 32 risk lab, 104 adversarial hardening, 264 cascade lab, 10 compliance) cover the seeded RNG, CLOB fills and sorting, TWAP and funding clamps, margin and liquidation pricing, the cascade engine, Monte Carlo determinism, VaR/CVaR, the combined report, the slippage curve and the pre-trade-mid regression fix, the ADL waterfall, portfolio netting, funding ladders, Cornish-Fisher moments, the verification bundle, the five-regime stress comparator, the conservation identity across every regime and shock cell, the shock sweep and ADL cliff, SHA-256 known answers, CSV injection escaping, audit tamper detection, bookmark codec round-trips, adversarial input validation and edge-case invariants, and repository compliance rules.
+487 passing tests (76 core, 32 risk lab, 104 adversarial hardening, 265 cascade lab, 10 compliance) cover the seeded RNG, CLOB fills and sorting, TWAP and funding clamps, margin and liquidation pricing, the cascade engine, Monte Carlo determinism, VaR/CVaR, the combined report, the slippage curve and the pre-trade-mid regression fix, the ADL waterfall, portfolio netting, funding ladders, Cornish-Fisher moments, the verification bundle, the five-regime stress comparator, the conservation identity across every regime and shock cell, the shock sweep and ADL cliff, SHA-256 known answers, CSV injection escaping, audit tamper detection, bookmark codec round-trips, adversarial input validation and edge-case invariants, and repository compliance rules.
 
 Individual suites:
 
@@ -51,7 +51,7 @@ Individual suites:
 npm run test:core         # 76 tests
 npm run test:risklab      # 32 tests
 npm run test:adversarial  # 104 tests
-npm run test:cascadelab   # 264 tests
+npm run test:cascadelab   # 265 tests
 npm run test:compliance   # 10 tests
 ```
 

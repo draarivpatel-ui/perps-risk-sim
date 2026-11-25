@@ -11,6 +11,7 @@
   --text-secondary: #c3c2b7;
   --muted: #8b918b;
   --accent: #3987e5;
+  --accent-action: #1f5fac;
   --accent-2: #199e70;
   --accent-3: #d95926;
   --series-1: #3987e5;
@@ -35,6 +36,7 @@ html[data-theme="light"] {
   --text-secondary: #52514e;
   --muted: #6d716b;
   --accent: #2a78d6;
+  --accent-action: #1f5fac;
   --accent-2: #1baf7a;
   --accent-3: #eb6834;
   --series-1: #2a78d6;
@@ -87,7 +89,7 @@ h1 { font-size: clamp(34px, 4.3vw, 54px); line-height: 1.08; letter-spacing: -.0
   padding: 11px 20px; border-radius: 10px; font-size: 14px; font-weight: 650;
   cursor: pointer; text-decoration: none; border: 1px solid transparent; font-family: var(--sans);
 }
-.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary { background: var(--accent-action); color: #fff; }
 .btn-primary:hover { filter: brightness(1.12); }
 .btn-ghost { background: var(--surface-2); color: var(--text-primary); border-color: var(--line); }
 .btn-ghost:hover { border-color: var(--accent); }
