@@ -24,7 +24,7 @@ Actual result: **488 tests, 488 pass, 0 fail.**
 | `test/risklab.test.js` | 32 | VWAP, Kyle lambda, slippage curve and the pre-trade-mid regression fix, ADL waterfall, portfolio netting, funding ladder, Cornish-Fisher VaR, verification bundle |
 | `test/adversarial.test.js` | 104 | Input validation and edge cases: nonfinite sizes and prices, invalid side strings, crossing limits, exact liquidation thresholds, caller-flag sanitizing, dust orders, VaR bounds, waterfall conservation, page hygiene |
 | `test/cascadelab.test.js` | 265 | Five-regime comparator, conservation identity across every regime and shock cell, shock sweep and ADL cliff, SHA-256 known answers, CSV escaping, audit tamper detection, bookmark codec, input hardening |
-| `test/compliance.test.js` | 10 | Zero dashes, zero model attributions, zero private details, docs consistent with the real count, no network calls |
+| `test/compliance.test.js` | 11 | Zero dashes, zero model attributions, zero private details, docs consistent with the real count, no network calls |
 
 Honesty harness: `python3 hark_honesty_and_defect_harness.py --audit repos/perps-risk-sim --project perps-risk-sim` reports **0 violations**.
 
@@ -64,7 +64,7 @@ Every module feeds a verification bundle with eleven self checks, exportable as 
 
 ## Submission checklist
 
-- [x] Tests pass: 487 of 487.
+- [x] Tests pass: 488 of 488.
 - [x] Honesty harness: 0 violations.
 - [x] No em dashes or en dashes in any file.
 - [x] No model attributions or model names in any file.
