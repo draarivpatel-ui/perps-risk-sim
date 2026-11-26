@@ -822,3 +822,12 @@ test('CL 156: printed conservation identity matches the computed sign convention
     if (r.unpaidBadDebt > 0) assert.ok(Math.abs(r.initialCollateral - plus) > 0.01);
   }
 });
+
+
+test('batch4 csv guard covers invisible unicode prefixes and numeric negatives', () => {
+  for (const input of ['\u200b=cmd', '\ufeff=cmd', '\u00a0=cmd', '\u2060@cmd', ' \u200b\t=cmd']) {
+    const out = C.csvEscape(input);
+    assert.ok(out.startsWith("'") || out.startsWith("\"'"), input + ' -> ' + out);
+  }
+  assert.ok(!String(C.csvEscape(-12.5)).includes("'"));
+});
