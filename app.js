@@ -311,7 +311,7 @@
   function renderCascade() {
     const shock = numIn('casc-shock', -9, -99, 25);
     const count = Math.round(numIn('casc-count', 8, 1, 24));
-    const lev = numIn('casc-lev', 10, 1, 25);
+    const lev = numIn('casc-lev', 10, 1, 10);
     $('casc-shock-out').textContent = String(shock);
     const mid = 30000;
     const positions = [];

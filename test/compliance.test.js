@@ -128,3 +128,10 @@ test('COMPLIANCE 11: the UI test count matches the README and print or motion cl
   assert.match(css, /@media print\s*\{[\s\S]*overflow:\s*visible/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
 });
+
+test('COMPLIANCE 12: cascade leverage UI stays inside the core engine boundary', () => {
+  const html = read('index.html');
+  const app = read('app.js');
+  assert.match(html, /id="casc-lev" value="10" min="1" max="10"/);
+  assert.match(app, /numIn\('casc-lev', 10, 1, 10\)/);
+});

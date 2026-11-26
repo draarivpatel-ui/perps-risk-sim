@@ -1,6 +1,6 @@
 # Perps Risk Sim: Upgrade Notes and Devpost Copy
 
-Target: dreamDEX Perps Builder Bounty ($3,000, Somnia Tokyo testnet).
+Target: dreamDEX Perps Builder Bounty (`$3,000`, Somnia Tokyo testnet).
 
 ## Verified test results
 
@@ -16,15 +16,15 @@ Which expands to:
 node --test test/perps.test.js test/risklab.test.js test/adversarial.test.js test/cascadelab.test.js test/compliance.test.js
 ```
 
-Actual result: **488 tests, 488 pass, 0 fail.**
+Actual result: **490 tests, 490 pass, 0 fail.**
 
 | Suite | Tests | What it locks |
 | --- | --- | --- |
 | `test/perps.test.js` | 76 | RNG, CLOB, TWAP and clamps, margin, liquidation, cascade, Monte Carlo, VaR/CVaR, combined report |
 | `test/risklab.test.js` | 32 | VWAP, Kyle lambda, slippage curve and the pre-trade-mid regression fix, ADL waterfall, portfolio netting, funding ladder, Cornish-Fisher VaR, verification bundle |
 | `test/adversarial.test.js` | 104 | Input validation and edge cases: nonfinite sizes and prices, invalid side strings, crossing limits, exact liquidation thresholds, caller-flag sanitizing, dust orders, VaR bounds, waterfall conservation, page hygiene |
-| `test/cascadelab.test.js` | 265 | Five-regime comparator, conservation identity across every regime and shock cell, shock sweep and ADL cliff, SHA-256 known answers, CSV escaping, audit tamper detection, bookmark codec, input hardening |
-| `test/compliance.test.js` | 11 | Zero dashes, zero model attributions, zero private details, docs consistent with the real count, no network calls |
+| `test/cascadelab.test.js` | 266 | Five-regime comparator, conservation identity across every regime and shock cell, shock sweep and ADL cliff, SHA-256 known answers, CSV escaping, audit tamper detection, bookmark codec, input hardening |
+| `test/compliance.test.js` | 12 | Zero dashes, zero model attributions, zero private details, docs consistent with the real count, no network calls, cascade leverage UI boundary |
 
 Honesty harness: `python3 hark_honesty_and_defect_harness.py --audit repos/perps-risk-sim --project perps-risk-sim` reports **0 violations**.
 
@@ -51,7 +51,7 @@ The upgrade adds a risk laboratory built from real financial computations. A quo
 
 The newest layer is a margin-regime stress comparator. Five deterministic exchange risk regimes are stressed against gap-down shocks and a short squeeze: the unbuffered 20x cross book socializes deep bad debt, isolated 10x caps account loss at posted margin, volatility-scaled margin thickens collateral before the gap lands, the circuit breaker plus partial liquidation halts the cascade mid-flight, and the graduated ADL policy spends a bigger fund before capping clawbacks at half of winner profit. Every run reconciles an exact conservation identity across the collateral pool, fees, the fund, counterparty settlement and any unpaid remainder. A shock sweep from -5% to -50% marks the first magnitude where ADL or insolvency triggers. The stress audit exports as checksummed JSON, CSV and Markdown under one unkeyed SHA-256 tamper-detection digest, and a strict URL hash codec bookmarks the comparator state.
 
-Every module feeds a verification bundle with eleven self checks, exportable as reproducible JSON alongside the deterministic desk report. Zero dependencies, zero build step, zero network calls. 489 passing tests across five suites, including a compliance suite that locks the no-dash and no-AI-disclosure rules and an adversarial suite that locks input validation: nonfinite sizes and prices, unknown side strings, crossing limit orders, total price shocks and degenerate VaR parameters all raise a `RangeError` instead of producing NaN. The model stays explicitly a risk-education tool over synthetic data, not a pricing library or a trading system.
+Every module feeds a verification bundle with eleven self checks, exportable as reproducible JSON alongside the deterministic desk report. Zero dependencies, zero build step, zero network calls. 490 passing tests across five suites, including a compliance suite that locks the no-dash and no-AI-disclosure rules and an adversarial suite that locks input validation: nonfinite sizes and prices, unknown side strings, crossing limit orders, total price shocks and degenerate VaR parameters all raise a `RangeError` instead of producing NaN. The model stays explicitly a risk-education tool over synthetic data, not a pricing library or a trading system.
 
 ## Devpost bullets
 
@@ -60,11 +60,11 @@ Every module feeds a verification bundle with eleven self checks, exportable as 
 - Cross-margin netting with hedge-benefit accounting, a clamped funding TWAP ladder and a cash-and-carry break-even.
 - Seeded GBM plus Merton jump diffusion, parametric and Monte Carlo VaR, expected shortfall, and Cornish-Fisher modified VaR from computed sample moments.
 - A five-regime liquidation and margin comparator with per-regime liquidation prices, bad-debt waterfalls, fund survival, ADL account counts and a cent-exact conservation identity, plus a -5% to -50% sweep chart with the insolvency cliff marked.
-- Honest and reproducible: 488 passing tests, 0 violations on the local honesty harness, a fixed pre-trade-mid defect with a regression test, hardened input validation, zero dependencies, and a plainly stated synthetic-data boundary.
+- Honest and reproducible: 490 passing tests, 0 violations on the local honesty harness, a fixed pre-trade-mid defect with a regression test, hardened input validation, zero dependencies, and a plainly stated synthetic-data boundary.
 
 ## Submission checklist
 
-- [x] Tests pass: 488 of 488.
+- [x] Tests pass: 490 of 490.
 - [x] Honesty harness: 0 violations.
 - [x] No em dashes or en dashes in any file.
 - [x] No model attributions or model names in any file.

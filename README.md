@@ -2,7 +2,7 @@
 
 A zero-dependency Perpetual Futures Orderbook, Funding-Rate Arbitrage, Cross-Margin Liquidation Cascade and VaR Simulator. Everything runs in the browser with plain JavaScript: no build step, no npm packages, no network calls.
 
-Built for the **dreamDEX Perps Builder Bounty** on DoraHacks ($3,000, Somnia Tokyo testnet).
+Built for the **dreamDEX Perps Builder Bounty** on DoraHacks (`$3,000`, Somnia Tokyo testnet).
 
 Live demo: https://aariv.me/perps-risk-sim/
 
@@ -43,7 +43,7 @@ Which runs:
 node --test test/perps.test.js test/risklab.test.js test/adversarial.test.js test/cascadelab.test.js test/compliance.test.js
 ```
 
-489 passing tests (76 core, 32 risk lab, 104 adversarial hardening, 266 cascade lab, 11 compliance) cover the seeded RNG, CLOB fills and sorting, TWAP and funding clamps, margin and liquidation pricing, the cascade engine, Monte Carlo determinism, VaR/CVaR, the combined report, the slippage curve and the pre-trade-mid regression fix, the ADL waterfall, portfolio netting, funding ladders, Cornish-Fisher moments, the verification bundle, the five-regime stress comparator, the conservation identity across every regime and shock cell, the shock sweep and ADL cliff, SHA-256 known answers, CSV injection escaping, audit tamper detection, bookmark codec round-trips, adversarial input validation and edge-case invariants, and repository compliance rules.
+490 passing tests (76 core, 32 risk lab, 104 adversarial hardening, 266 cascade lab, 12 compliance) cover the seeded RNG, CLOB fills and sorting, TWAP and funding clamps, margin and liquidation pricing, the cascade engine, Monte Carlo determinism, VaR/CVaR, the combined report, the slippage curve and the pre-trade-mid regression fix, the ADL waterfall, portfolio netting, funding ladders, Cornish-Fisher moments, the verification bundle, the five-regime stress comparator, the conservation identity across every regime and shock cell, the shock sweep and ADL cliff, SHA-256 known answers, CSV injection escaping, audit tamper detection, bookmark codec round-trips, adversarial input validation and edge-case invariants, the cascade leverage UI boundary, and repository compliance rules.
 
 Individual suites:
 
@@ -52,7 +52,7 @@ npm run test:core         # 76 tests
 npm run test:risklab      # 32 tests
 npm run test:adversarial  # 104 tests
 npm run test:cascadelab   # 266 tests
-npm run test:compliance   # 11 tests
+npm run test:compliance   # 12 tests
 ```
 
 ## Library API
