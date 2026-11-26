@@ -117,3 +117,14 @@ test('COMPLIANCE 10: the page makes no network requests', () => {
   const html = read('index.html').replace(/<script[\s\S]*?<\/script>/g, '');
   assert.equal(/https?:\/\//.test(html), false);
 });
+
+test('COMPLIANCE 11: the UI test count matches the README and print or motion cleanup exists', () => {
+  const readme = read('README.md');
+  const m = readme.match(/(\d+) passing (?:unit )?tests/);
+  assert.ok(m, 'README states a passing test count');
+  assert.match(read('index.html'), new RegExp('id="stat-tests">' + m[1] + '<'));
+  const css = read('style.css');
+  assert.match(css, /@media print\s*\{/);
+  assert.match(css, /@media print\s*\{[\s\S]*overflow:\s*visible/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
+});

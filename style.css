@@ -214,3 +214,15 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 @media (max-width: 560px) {
   .data-table th, .data-table td { padding: 6px 7px; font-size: 10.5px; }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+@media print {
+  body { background: #fff; color: #111; }
+  .grain, .site-head, .hero-actions, button, input, select, .tooltip { display: none !important; }
+  .hero-panel, .card, .verdict, .code-block { box-shadow: none !important; break-inside: avoid; }
+  .table-wrap, .code-block { overflow: visible !important; max-height: none !important; white-space: pre-wrap; }
+  a { color: inherit; text-decoration: none; }
+}
