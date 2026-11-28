@@ -831,3 +831,33 @@ test('batch4 csv guard covers invisible unicode prefixes and numeric negatives',
   }
   assert.ok(!String(C.csvEscape(-12.5)).includes("'"));
 });
+
+test('CL 157: closedFormLiqPrice rejects nonfinite numeric inputs', () => {
+  assert.throws(() => C.closedFormLiqPrice('long', Infinity, 3000, 1, 0.005, 0), RangeError);
+  assert.throws(() => C.closedFormLiqPrice('long', 30000, Infinity, 1, 0.005, 0), RangeError);
+  assert.throws(() => C.closedFormLiqPrice('long', 30000, 3000, Infinity, 0.005, 0), RangeError);
+  assert.throws(() => C.closedFormLiqPrice('long', 30000, 3000, 1, Infinity, 0), RangeError);
+  assert.throws(() => C.closedFormLiqPrice('long', 30000, 3000, 1, 0.005, Infinity), RangeError);
+  assert.throws(() => C.closedFormLiqPrice('long', 30000, 3000, -1, 0.005, 0), RangeError);
+});
+
+test('CL 158: circuit breaker does not worsen realized liquidation deficits across the dense shock grid', () => {
+  const grid = [];
+  for (let s = -50; s <= 50; s += 2.5) {
+    grid.push(Number(s.toFixed(2)));
+  }
+  assert.equal(grid.length, 41);
+  assert.ok(grid.includes(-5));
+  assert.ok(grid.includes(0));
+  const violations = [];
+  for (const shock of grid) {
+    const base = C.runRegime('cross20', shock);
+    const cb = C.runRegime('circuit', shock);
+    if (cb.badDebt > base.badDebt + 1e-6) violations.push({ shock, base: base.badDebt, circuit: cb.badDebt });
+  }
+  assert.deepEqual(violations, []);
+  assert.equal(C.runRegime('circuit', -5).breakerHalted, true);
+  const dense = C.selfTests().checks.find(c => /dense shock grid/.test(c.name));
+  assert.ok(dense, 'in-page dense-grid check is registered');
+  assert.match(dense.detail, /41 grid points/);
+});

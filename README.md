@@ -14,10 +14,10 @@ Live demo: https://aariv.me/perps-risk-sim/
 - **Liquidation cascade**: a price shock marks positions to market, force-closes undercollateralized ones into the book, and uses the resulting price drift to trigger further rounds. Full event log per round.
 - **Monte Carlo GBM plus Merton jump diffusion**: seeded geometric Brownian motion with Poisson jumps, terminal-price histogram, 99% VaR, expected shortfall (CVaR), parametric VaR comparison, and a liquidation breach probability stress test.
 - **Risk laboratory**: a quote-versus-fill slippage curve, a Kyle lambda price-impact regression solved by least squares, a book VWAP, an insurance fund and auto-deleveraging waterfall that reconciles exactly, cross-margin portfolio netting with hedge-benefit accounting, a multi-interval funding ladder, and Cornish-Fisher modified VaR from the sample skewness and excess kurtosis of a seeded return series.
-- **Liquidation-cascade and margin-regime stress comparator**: five deterministic exchange risk regimes (20x unbuffered cross, 10x isolated with static MMR, dynamic volatility-scaled margin, circuit-breaker plus partial liquidation, insurance fund plus graduated ADL) stressed against four flash-crash and squeeze shocks on a shared synthetic position universe. Each run reports the exact liquidation price, bad-debt socialization, insurance-fund survival ratio, cascading orderbook impact slippage, ADL-triggered account count, and an equity/fund conservation identity that reconciles to the cent.
+- **Liquidation-cascade and margin-regime stress comparator**: five deterministic exchange risk regimes (20x unbuffered cross, 10x isolated with static MMR, dynamic volatility-scaled margin, circuit-breaker plus partial liquidation, insurance fund plus graduated ADL) stressed against four flash-crash and squeeze shocks on a shared synthetic position universe. Each run reports the exact liquidation price, realized liquidation deficit socialization, insurance-fund survival ratio, cascading orderbook impact slippage, ADL-triggered account count, and an equity/fund conservation identity that reconciles to the cent. The deficit metric counts losses realized on executed liquidation slices; a circuit-breaker halt can leave underwater positions open, so it is not a bound on total losses or a protocol invariant.
 - **Price-shock sweep chart**: cumulative liquidated notional and insurance-fund spend across shock magnitudes from -5% to -50%, with the first ADL or insolvency trigger cliff marked.
 - **SHA-256 checksummed stress-audit export**: a pure-JS FIPS 180-4 digest (honestly labeled as an unkeyed tamper-detection checksum, not a signature) over a canonical JSON report, rendered identically into JSON, CSV and Markdown. CSV fields are escaped against formula injection. In-page verify and tamper-test buttons recompute the digest live. A strict `#prs=` URL hash codec bookmarks the comparator state.
-- **In-page self-test battery**: fourteen live checks covering SHA-256 known answers, leverage-to-liquidation-distance scaling, bad-debt nonnegativity and shock monotonicity, the conservation identity across every regime and shock, the circuit-breaker non-worsening invariant, CSV escaping, tamper detection and bookmark round-trips.
+- **In-page self-test battery**: fourteen live checks covering SHA-256 known answers, leverage-to-liquidation-distance scaling, bad-debt nonnegativity and shock monotonicity, the conservation identity across every regime and shock, the dense-grid circuit-breaker realized-liquidation-deficit comparison over all 41 inclusive shock grid points, CSV escaping, tamper detection and bookmark round-trips.
 - **Combined deterministic risk report** with JSON copy and download, plus a full verification bundle that exports every self check.
 - **Hardened inputs**: every public entry point validates its arguments. Nonfinite sizes and prices, unknown side strings, crossing limit orders, degenerate books, bad margin config, total price shocks and out-of-range VaR parameters all raise a `RangeError` instead of producing NaN or silently defaulting.
 
@@ -43,15 +43,15 @@ Which runs:
 node --test test/perps.test.js test/risklab.test.js test/adversarial.test.js test/cascadelab.test.js test/compliance.test.js
 ```
 
-490 passing tests (76 core, 32 risk lab, 104 adversarial hardening, 266 cascade lab, 12 compliance) cover the seeded RNG, CLOB fills and sorting, TWAP and funding clamps, margin and liquidation pricing, the cascade engine, Monte Carlo determinism, VaR/CVaR, the combined report, the slippage curve and the pre-trade-mid regression fix, the ADL waterfall, portfolio netting, funding ladders, Cornish-Fisher moments, the verification bundle, the five-regime stress comparator, the conservation identity across every regime and shock cell, the shock sweep and ADL cliff, SHA-256 known answers, CSV injection escaping, audit tamper detection, bookmark codec round-trips, adversarial input validation and edge-case invariants, the cascade leverage UI boundary, and repository compliance rules.
+499 passing tests (82 core, 33 risk lab, 104 adversarial hardening, 268 cascade lab, 12 compliance) cover the seeded RNG, CLOB fills and sorting, TWAP and funding clamps, margin and liquidation pricing, the cascade engine, Monte Carlo determinism, VaR/CVaR, the combined report, the slippage curve and the pre-trade-mid regression fix, the ADL waterfall, portfolio netting, funding ladders, Cornish-Fisher moments, the verification bundle, the five-regime stress comparator, the conservation identity across every regime and shock cell, the shock sweep and ADL cliff, SHA-256 known answers, CSV injection escaping, audit tamper detection, bookmark codec round-trips, adversarial input validation and edge-case invariants, the cascade leverage UI boundary, and repository compliance rules.
 
 Individual suites:
 
 ```
-npm run test:core         # 76 tests
-npm run test:risklab      # 32 tests
+npm run test:core         # 82 tests
+npm run test:risklab      # 33 tests
 npm run test:adversarial  # 104 tests
-npm run test:cascadelab   # 266 tests
+npm run test:cascadelab   # 268 tests
 npm run test:compliance   # 12 tests
 ```
 

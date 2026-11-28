@@ -325,7 +325,10 @@
     const sim = P.simulatePaths({ s0: o.s0, paths: o.paths, horizonDays: 1, stepsPerDay: 24, seed: o.seed, lambda: 0.5 });
     const returns = sim.terminal.map(s => (s - o.s0) / o.s0);
     const cf = cornishFisherVaR(returns, 0.99, P.notional(P.position({ markPrice: o.s0 })));
-    const mc = P.monteCarloVaR({ s0: o.s0, paths: o.paths, seed: o.seed, horizonDays: 1, stepsPerDay: 24 });
+    const mcParams = { s0: o.s0, paths: o.paths, seed: o.seed, horizonDays: 1, stepsPerDay: 24 };
+    const mc = P.monteCarloVaR(mcParams);
+    const mcRepeat = P.monteCarloVaR(mcParams);
+    const mcNumericFields = ['varPct', 'cvarPct', 'varNotional', 'cvarNotional', 'meanReturn', 'stdReturn', 'minTerminal', 'maxTerminal', 'medianTerminal', 'p05Terminal', 'p95Terminal'];
     const checks = {
       quoteMatchesFillEverySize: curve.allQuotesMatch,
       kyleLambdaPositive: kyle.lambda > 0,
@@ -336,7 +339,7 @@
       fundingLadderReconciles: ladder.cumulativeMatchesSum,
       cvarAtLeastVar: cf.historicalCvarPct >= cf.historicalVarPct - 1e-6,
       pathsPositive: sim.terminal.every(s => s > 0),
-      monteCarloDeterministic: mc.paths === o.paths,
+      monteCarloDeterministic: mc.paths === o.paths && mcRepeat.paths === mc.paths && mcNumericFields.every(k => mcRepeat[k] === mc[k]),
       vwapInsideSpread: vwap.vwap === null || (vwap.vwap >= vwap.mid)
     };
     return {

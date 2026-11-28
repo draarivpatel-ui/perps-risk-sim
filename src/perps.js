@@ -45,6 +45,7 @@
 
   function clamp(x, lo, hi) { return Math.min(hi, Math.max(lo, x)); }
   function round(x, dp) { const f = Math.pow(10, dp === undefined ? 6 : dp); return Math.round(x * f) / f; }
+  function roundNonzero(x, dp) { const r = round(x, dp); return r === 0 && x > 0 ? x : r; }
 
   // ============================================================
   // Module 1: CLOB (central limit order book) depth & impact engine
@@ -167,7 +168,7 @@
       const avgPrice = filled > 0 ? notional / filled : null;
       const slippage = avgPrice === null ? 0 : round(Math.abs(avgPrice - ref), 4);
       const impactBps = avgPrice === null ? 0 : round((Math.abs(avgPrice - ref) / ref) * 10000, 3);
-      const unfilled = round(Math.max(0, remaining), 9);
+      const unfilled = Math.max(0, remaining);
       if (filled > 0) { lastTrade = round(avgPrice, 4); volume += filled; }
       return {
         side, requested: size, filled: round(filled, 6), unfilled,
@@ -194,7 +195,7 @@
       const avgPrice = filled > 0 ? notional / filled : null;
       const ref = midPrice();
       return {
-        side, size, filled: round(filled, 6), unfilled: round(Math.max(0, remaining), 9),
+        side, size, filled: round(filled, 6), unfilled: Math.max(0, remaining),
         avgPrice: avgPrice === null ? null : round(avgPrice, 4),
         slippage: avgPrice === null ? 0 : round(Math.abs(avgPrice - ref), 4),
         impactBps: avgPrice === null ? 0 : round((Math.abs(avgPrice - ref) / ref) * 10000, 3),
@@ -368,9 +369,11 @@
   function requirePosition(pos) {
     if (!pos || typeof pos !== 'object' || Array.isArray(pos)) throw new RangeError('expected a position object');
     if (pos.side !== 'long' && pos.side !== 'short') throw new RangeError('position side must be long or short');
-    if (!Number.isFinite(pos.size) || !Number.isFinite(pos.entryPrice) || !Number.isFinite(pos.markPrice) || !Number.isFinite(pos.collateral) || !Number.isFinite(pos.leverage)) {
-      throw new RangeError('position fields must be finite numbers');
-    }
+    if (!(pos.size > 0) || !Number.isFinite(pos.size)) throw new RangeError('position size must be a positive finite number');
+    if (!(pos.entryPrice > 0) || !Number.isFinite(pos.entryPrice)) throw new RangeError('entryPrice must be a positive finite number');
+    if (!(pos.markPrice > 0) || !Number.isFinite(pos.markPrice)) throw new RangeError('markPrice must be a positive finite number');
+    if (!(pos.collateral >= 0) || !Number.isFinite(pos.collateral)) throw new RangeError('collateral must be a nonnegative finite number');
+    if (!(pos.leverage >= 1) || !Number.isFinite(pos.leverage)) throw new RangeError('leverage must be a finite number of at least one');
     return pos;
   }
 
@@ -432,10 +435,14 @@
     if (Math.abs(denom) < 1e-12) return null;
     const price = (dir * S * E - C + base) / denom;
     if (!Number.isFinite(price) || price <= 0) return null;
-    // The displayed price must still liquidate: if 4-dp rounding lands on the
-    // surviving side of the root, step one tick toward the boundary.
+    // The displayed price must still liquidate: a long root below the first
+    // positive tick is zero at display resolution, otherwise step one tick toward the boundary.
     let out = round(price, 4);
     for (let i = 0; i < 8; i += 1) {
+      if (!(out > 0)) {
+        if (dir === 1) return 0;
+        out = 0.0001;
+      }
       if (isLiquidatable(Object.assign({}, p, { markPrice: out }), c)) break;
       out = round(out + (dir === 1 ? -0.0001 : 0.0001), 4);
     }
@@ -502,10 +509,11 @@
       if (!p || typeof p !== 'object' || Array.isArray(p)) throw new RangeError('cascade positions[' + i + '] must be an object');
       const pos = position(Object.assign({}, p, { markPrice: price }));
       pos.liquidated = false; // ignore a caller-supplied liquidated flag
+      pos.closedSize = 0;
       return pos;
     });
     const events = [];
-    let totalLiquidated = 0, totalPenalty = 0, totalVolume = 0;
+    let totalPenalty = 0, totalVolume = 0;
     for (let roundIdx = 0; roundIdx < maxRounds; roundIdx++) {
       const triggered = [];
       for (let i = 0; i < active.length; i++) {
@@ -519,41 +527,70 @@
       // fills execute near the cascading price, not the pre-shock mid.
       if (!o.book) book = Orderbook({ mid: price, levels: 16, baseSize: 12, step: price * 0.0006 });
       let roundVolume = 0, roundPenalty = 0;
+      const filledByIndex = {};
       for (const idx of triggered) {
         const p = active[idx];
-        p.liquidated = true;
+        const requestedSize = p.size;
         const closeSide = p.side === 'long' ? 'sell' : 'buy';
-        const fill = book.marketOrder(closeSide, p.size);
+        const fill = book.marketOrder(closeSide, requestedSize);
+        filledByIndex[idx] = fill.filled;
         // Penalty is charged on executed notional only; the unfilled residual
-        // is reported, never silently treated as liquidated volume.
+        // stays open with the same fraction of the position collateral.
         const executedNotional = fill.filled * (fill.avgPrice || price);
         const penalty = round(executedNotional * o.liqFeeRate, 4);
         roundVolume += fill.filled;
         roundPenalty += penalty;
-        totalLiquidated++;
+        p.closedSize = (p.closedSize || 0) + fill.filled;
+        if (fill.unfilled > 0) {
+          p.size = fill.unfilled;
+          p.collateral = p.collateral * (fill.unfilled / requestedSize);
+          p.liquidated = false;
+        } else if (fill.filled > 0) {
+          p.size = 0;
+          p.collateral = 0;
+          p.liquidated = true;
+        } else {
+          p.size = requestedSize;
+          p.liquidated = false;
+        }
         events.push({
-          round: roundIdx + 1, side: p.side, size: p.size,
+          round: roundIdx + 1, side: p.side, size: requestedSize,
           markPrice: price, fillPrice: fill.avgPrice, impactBps: fill.impactBps, penalty,
-          filled: fill.filled, unfilled: fill.unfilled
+          filled: fill.filled, unfilled: fill.unfilled, remainingSize: p.size,
+          liquidated: p.liquidated
         });
       }
       totalVolume = round(totalVolume + roundVolume, 4);
       totalPenalty = round(totalPenalty + roundPenalty, 4);
       // Price moves with the net closing *volume* (sells down, buys up).
-      const netSell = triggered.reduce((s, i) => s + (active[i].side === 'long' ? active[i].size : -active[i].size), 0);
+      const netSell = triggered.reduce((s, i) => {
+        const closed = filledByIndex[i] || 0;
+        return s + (active[i].side === 'long' ? closed : -closed);
+      }, 0);
       const drift = netSell > 0 ? -1 : (netSell < 0 ? 1 : 0);
       price = round(price * (1 + drift * Math.min(0.02, roundVolume * 0.00008)), 4);
     }
+    const finalPositions = active.map((p, i) => ({
+      index: i, side: p.side, size: roundNonzero(p.size, 9), entryPrice: p.entryPrice,
+      markPrice: price, collateral: roundNonzero(p.collateral, 6), leverage: p.leverage,
+      marginMode: p.marginMode, liquidated: p.liquidated,
+      closedSize: roundNonzero(p.closedSize || 0, 9)
+    }));
+    const fullyLiquidatedCount = active.filter(p => p.liquidated).length;
+    const partiallyLiquidatedCount = active.filter(p => !p.liquidated && (p.closedSize || 0) > 0).length;
     return {
       initialPrice: o.mid, shockedPrice: round(o.mid * (1 + o.shockPct / 100), 4),
       finalPrice: price,
       priceMovePct: round(((price - o.mid) / o.mid) * 100, 4),
-      liquidatedCount: totalLiquidated,
-      survivingCount: active.length - totalLiquidated,
+      liquidatedCount: fullyLiquidatedCount,
+      fullyLiquidatedCount,
+      partiallyLiquidatedCount,
+      survivingCount: active.length - fullyLiquidatedCount,
       totalLiquidatedVolume: totalVolume,
       totalPenalty,
       rounds: events.length ? events[events.length - 1].round : 0,
       events,
+      positions: finalPositions,
       book: book.snapshot()
     };
   }

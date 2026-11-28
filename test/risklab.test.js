@@ -275,3 +275,22 @@ test('RL32: the regression fix is locked by an independent direct assertion', ()
   assert.equal(fill.impactBps, quote.impactBps);
   assert.equal(fill.slippage, quote.slippage);
 });
+
+test('RL33: monteCarloDeterministic reruns the seeded simulation and compares numeric outputs', () => {
+  const original = P.monteCarloVaR;
+  let calls = 0;
+  P.monteCarloVaR = function (params) {
+    calls += 1;
+    const out = original(params);
+    out.varPct += calls;
+    out.cvarPct += calls;
+    return out;
+  };
+  try {
+    const b = A.verificationBundle({ paths: 8, seed: 'determinism-probe' });
+    assert.equal(calls, 2);
+    assert.equal(b.selfChecks.monteCarloDeterministic, false);
+  } finally {
+    P.monteCarloVaR = original;
+  }
+});

@@ -516,3 +516,134 @@ test('76: riskReport position liquidation price is finite', () => {
   assert.ok(Number.isFinite(r.position.liquidationPrice));
   assert.ok(r.position.liquidationPrice < 42000);
 });
+
+// ---------------------------------------------------------------
+// Section 8: audit regressions for hardened financial state (tests 77-82)
+// ---------------------------------------------------------------
+test('77: public position readers reject crafted negative financial state', () => {
+  const base = { side: 'long', size: 1, entryPrice: 30000, markPrice: 30000, collateral: 3000, leverage: 10 };
+  const readers = [
+    ['notional', P.notional],
+    ['initialMargin', P.initialMargin],
+    ['unrealizedPnl', P.unrealizedPnl],
+    ['equity', P.equity],
+    ['maintenanceMargin', P.maintenanceMargin],
+    ['marginRatio', P.marginRatio],
+    ['isLiquidatable', P.isLiquidatable],
+    ['liquidationPenalty', P.liquidationPenalty]
+  ];
+  const invalids = [
+    ['size', -1], ['entryPrice', -30000], ['markPrice', -29000], ['collateral', -100], ['leverage', 0.5]
+  ];
+  for (const [field, value] of invalids) {
+    const crafted = Object.assign({}, base, { [field]: value });
+    for (const [name, reader] of readers) assert.throws(() => reader(crafted), RangeError, name + ' accepted crafted ' + field);
+  }
+  const combined = { side: 'long', size: -1, entryPrice: -30000, markPrice: -29000, collateral: -100, leverage: 0.5 };
+  for (const [name, reader] of readers) assert.throws(() => reader(combined), RangeError, name + ' accepted combined crafted state');
+});
+
+test('78: a partially filled liquidation leaves residual size active and counts it truthfully', () => {
+  const book = P.Orderbook({ mid: 27000, levels: 1, baseSize: 1, step: 27 });
+  const pos = P.position({ side: 'long', size: 2, entryPrice: 30000, markPrice: 30000, collateral: 1000, leverage: 10 });
+  const c = P.liquidationCascade({ mid: 30000, shockPct: -10, positions: [pos], rounds: 1, book });
+  assert.equal(c.events.length, 1);
+  assert.equal(c.events[0].filled, 1);
+  assert.equal(c.events[0].unfilled, 1);
+  assert.equal(c.liquidatedCount, 0);
+  assert.equal(c.fullyLiquidatedCount, 0);
+  assert.equal(c.partiallyLiquidatedCount, 1);
+  assert.equal(c.survivingCount, 1);
+  assert.equal(c.positions.length, 1);
+  assert.equal(c.positions[0].liquidated, false);
+  assert.equal(c.positions[0].size, 1);
+  assert.equal(c.positions[0].collateral, 500);
+});
+
+test('79: a positive liquidation root below the first price tick rounds to zero cleanly', () => {
+  const pos = P.position({ side: 'long', size: 1, entryPrice: 100, markPrice: 100, collateral: 99.99999, leverage: 10 });
+  let liq = null;
+  assert.doesNotThrow(() => { liq = P.liquidationPrice(pos); });
+  assert.equal(liq, 0);
+});
+
+test('80: a zero-fill submicro liquidation is never counted as fully liquidated', () => {
+  const pos = P.position({ side: 'long', size: 1e-10, entryPrice: 30000, markPrice: 30000, collateral: 0, leverage: 10 });
+  const c = P.liquidationCascade({ mid: 30000, shockPct: -10, positions: [pos], rounds: 1 });
+  assert.equal(c.events.length, 1);
+  assert.equal(c.events[0].filled, 0);
+  assert.equal(c.events[0].unfilled, 1e-10);
+  assert.equal(c.events[0].liquidated, false);
+  assert.equal(c.liquidatedCount, 0);
+  assert.equal(c.fullyLiquidatedCount, 0);
+  assert.equal(c.partiallyLiquidatedCount, 0);
+  assert.equal(c.survivingCount, 1);
+  assert.equal(c.positions[0].liquidated, false);
+  assert.equal(c.positions[0].size, 1e-10);
+  assert.equal(c.positions[0].closedSize, 0);
+});
+
+test('81: a tiny positive remainder after a real fill stays active', () => {
+  const size = 1.0000000001;
+  const book = P.Orderbook({ mid: 27000, levels: 1, baseSize: 1, step: 27 });
+  const pos = P.position({ side: 'long', size, entryPrice: 30000, markPrice: 30000, collateral: 1000, leverage: 10 });
+  const c = P.liquidationCascade({ mid: 30000, shockPct: -10, positions: [pos], rounds: 1, book });
+  assert.equal(c.events.length, 1);
+  assert.equal(c.events[0].filled, 1);
+  assert.ok(Math.abs(c.events[0].unfilled - 1e-10) < 1e-15, 'unfilled ' + c.events[0].unfilled);
+  assert.equal(c.events[0].liquidated, false);
+  assert.equal(c.liquidatedCount, 0);
+  assert.equal(c.fullyLiquidatedCount, 0);
+  assert.equal(c.partiallyLiquidatedCount, 1);
+  assert.equal(c.survivingCount, 1);
+  assert.equal(c.positions[0].liquidated, false);
+  assert.ok(Math.abs(c.positions[0].size - 1e-10) < 1e-15, 'remaining ' + c.positions[0].size);
+  assert.equal(c.positions[0].closedSize, 1);
+});
+
+test('82: a caller book micro-fill keeps closedSize nonzero and counts as partial', () => {
+  const tinyFill = 1e-10;
+  const book = {
+    marketOrder(side, size) {
+      return {
+        side,
+        requested: size,
+        filled: tinyFill,
+        unfilled: size - tinyFill,
+        avgPrice: 27000,
+        notional: tinyFill * 27000,
+        slippage: 0,
+        impactBps: 0,
+        levelsHit: 1,
+        fills: [{ price: 27000, size: tinyFill }],
+        newMid: 27000
+      };
+    },
+    snapshot() {
+      return {
+        tick: 0.5,
+        mid: 27000,
+        bestBid: 26999.5,
+        bestAsk: 27000.5,
+        spread: 1,
+        lastTrade: 27000,
+        volume: tinyFill,
+        bids: [],
+        asks: [],
+        depth: { bids: 0, asks: 0, bidLevels: 0, askLevels: 0 }
+      };
+    }
+  };
+  const pos = P.position({ side: 'long', size: 1, entryPrice: 30000, markPrice: 30000, collateral: 0, leverage: 10 });
+  const c = P.liquidationCascade({ mid: 30000, shockPct: -10, positions: [pos], rounds: 1, book });
+  assert.equal(c.events.length, 1);
+  assert.equal(c.events[0].filled, tinyFill);
+  assert.equal(c.events[0].unfilled, 1 - tinyFill);
+  assert.equal(c.events[0].liquidated, false);
+  assert.equal(c.positions[0].closedSize, tinyFill);
+  assert.equal(c.liquidatedCount, 0);
+  assert.equal(c.fullyLiquidatedCount, 0);
+  assert.equal(c.partiallyLiquidatedCount, 1);
+  assert.equal(c.survivingCount, 1);
+  assert.equal(c.positions[0].liquidated, false);
+});

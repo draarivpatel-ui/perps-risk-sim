@@ -146,10 +146,12 @@
   //   C + dir*(P - E)*S == P*S*mmr + base
   function closedFormLiqPrice(side, entry, collateral, size, mmr, base) {
     if (side !== 'long' && side !== 'short') throw new RangeError('closedFormLiqPrice side must be long or short');
-    if (!(entry > 0) || !Number.isFinite(size) || !(collateral >= 0) || !(mmr >= 0) || !(base >= 0)) {
+    if (!Number.isFinite(entry) || !(entry > 0) || !Number.isFinite(collateral) || !(collateral >= 0) ||
+      !Number.isFinite(size) || !(size >= 0) || !Number.isFinite(mmr) || !(mmr >= 0) ||
+      !Number.isFinite(base) || !(base >= 0)) {
       throw new RangeError('closedFormLiqPrice fields must be nonnegative finite numbers with a positive entry');
     }
-    if (size <= 0) return null;
+    if (size === 0) return null;
     const dir = side === 'short' ? -1 : 1;
     const denom = dir * size - size * mmr;
     if (Math.abs(denom) < 1e-12) return null;
@@ -268,15 +270,17 @@
         });
       }
       // Closing volume drifts the mark, same synthetic feedback as the core
-      // cascade engine. Circuit-breaker regimes halt once the cumulative
-      // cascade drift runs past the breaker band.
+      // cascade engine. A circuit breaker compares the total move from the
+      // pre-shock mid with its band; ignoring the initial shock would leave
+      // loss-bearing residuals active for extra rounds even after a large gap.
       const driftDir = roundSell > 0 ? -1 : roundSell < 0 ? 1 : 0;
       const drift = driftDir * Math.min(o.driftCap, Math.abs(roundSell) * o.driftStep);
       price = round(price * (1 + drift), 4);
       const cascadeDriftPct = Math.abs((price - shockedPrice) / shockedPrice) * 100;
-      if (regime.breakerPct !== null && cascadeDriftPct >= regime.breakerPct) {
+      const totalMovePct = Math.abs((price - o.mid) / o.mid) * 100;
+      if (regime.breakerPct !== null && Math.max(cascadeDriftPct, totalMovePct) >= regime.breakerPct) {
         breakerHalted = true;
-        events.push({ round: roundIdx + 1, type: 'breaker-halt', markPrice: price, driftPct: round(cascadeDriftPct, 4) });
+        events.push({ round: roundIdx + 1, type: 'breaker-halt', markPrice: price, driftPct: round(cascadeDriftPct, 4), totalMovePct: round(totalMovePct, 4) });
         break;
       }
     }
@@ -705,12 +709,15 @@
       }
       return cells + ' cells reconcile';
     });
-    run('Circuit breaker never worsens bad debt vs unbuffered cross', () => {
-      for (const s of [-10, -25, -40]) {
-        const base = runRegime('cross20', s), cb = runRegime('circuit', s);
-        expect(cb.badDebt <= base.badDebt + 1e-6, s + ': breaker ' + cb.badDebt + ' worse than ' + base.badDebt);
+    run('Circuit breaker does not worsen realized liquidation deficits on the dense shock grid', () => {
+      let cells = 0;
+      for (let s = -50; s <= 50; s += 2.5) {
+        const shock = Number(s.toFixed(2));
+        const base = runRegime('cross20', shock), cb = runRegime('circuit', shock);
+        expect(cb.badDebt <= base.badDebt + 1e-6, shock + ': breaker ' + cb.badDebt + ' worse than ' + base.badDebt);
+        cells++;
       }
-      return 'breaker <= cross on 3 shocks';
+      return 'breaker <= cross on ' + cells + ' grid points';
     });
     run('CSV escaping blocks formula injection and quoting', () => {
       expect(csvEscape('=1+1') === "'=1+1", 'equals not escaped');
